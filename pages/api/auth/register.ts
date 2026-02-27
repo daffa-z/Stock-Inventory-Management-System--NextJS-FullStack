@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { getMongoDb, isReplicaSetTransactionError } from "@/utils/mongo";
 
 const prisma = new PrismaClient();
 
@@ -20,29 +21,22 @@ export default async function handler(
   }
 
   try {
-    // Validate request body with Zod schema
     const { name, email, password } = registerSchema.parse(req.body);
 
-    // Check if the user already exists in the database
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate a unique username (email prefix as base)
-    let username = email.split('@')[0];
+    let username = email.split("@")[0];
     let counter = 1;
 
-    // Check if the generated username already exists in the database
     while (await prisma.user.findUnique({ where: { username } })) {
-      username = `${email.split('@')[0]}${counter}`;
+      username = `${email.split("@")[0]}${counter}`;
       counter++;
     }
 
-    // Create the new user using Prisma
     const newUser = await prisma.user.create({
       data: {
         name,
@@ -54,7 +48,6 @@ export default async function handler(
       },
     });
 
-    // Return the created user data
     return res.status(201).json({
       id: newUser.id,
       name: newUser.name,
@@ -62,10 +55,52 @@ export default async function handler(
       username: newUser.username,
     });
   } catch (error) {
+    if (isReplicaSetTransactionError(error)) {
+      try {
+        const { name, email, password } = registerSchema.parse(req.body);
+        const db = await getMongoDb();
+        const users = db.collection("User");
+
+        const existingUser = await users.findOne({ email });
+        if (existingUser) {
+          return res.status(400).json({ error: "User already exists" });
+        }
+
+        const baseUsername = email.split("@")[0];
+        let username = baseUsername;
+        let counter = 1;
+        while (await users.findOne({ username })) {
+          username = `${baseUsername}${counter}`;
+          counter++;
+        }
+
+        const now = new Date();
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const inserted = await users.insertOne({
+          name,
+          email,
+          password: hashedPassword,
+          username,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        return res.status(201).json({
+          id: inserted.insertedId.toString(),
+          name,
+          email,
+          username,
+        });
+      } catch (mongoError) {
+        console.error("Register fallback error:", mongoError);
+        return res.status(500).json({ error: "Failed to register user" });
+      }
+    }
+
     if (error instanceof Error) {
       return res.status(500).json({ error: error.message });
-    } else {
-      return res.status(500).json({ error: "An unknown error occurred" });
     }
+
+    return res.status(500).json({ error: "An unknown error occurred" });
   }
 }
