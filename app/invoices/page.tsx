@@ -14,6 +14,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 interface InvoiceItemForm {
   productId: string;
+  productSearch: string;
   quantity: number;
 }
 
@@ -32,6 +33,7 @@ interface CreatedInvoice {
   amountPaid: number;
   changeAmount: number;
   paymentMethod: string;
+  bankName: string;
   keterangan: string;
   createdAt: string;
   items: Array<{
@@ -45,7 +47,8 @@ interface CreatedInvoice {
   }>;
 }
 
-const PAYMENT_METHODS = ["Tunai", "Bank Transfer", "E-Wallet", "QRIS"] as const;
+const PAYMENT_METHODS = ["Tunai", "Bank Transfer", "Kartu Debit/Kredit", "E-Wallet", "QRIS"] as const;
+const BANK_OPTIONS = ["BRI", "MANDIRI", "BCA", "BNI"] as const;
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -59,13 +62,14 @@ export default function InvoicesPage() {
   const { toast } = useToast();
 
   const [customerName, setCustomerName] = useState("");
-  const [items, setItems] = useState<InvoiceItemForm[]>([{ productId: "", quantity: 1 }]);
+  const [items, setItems] = useState<InvoiceItemForm[]>([{ productId: "", productSearch: "", quantity: 1 }]);
   const [taxRate, setTaxRate] = useState(11);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [discountValue, setDiscountValue] = useState(0);
   const [promoCode, setPromoCode] = useState("");
   const [amountPaid, setAmountPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>("Tunai");
+  const [bankName, setBankName] = useState<(typeof BANK_OPTIONS)[number] | "">("");
   const [keterangan, setKeterangan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null);
@@ -75,7 +79,7 @@ export default function InvoicesPage() {
   }, [loadProducts]);
 
   const addItem = () => {
-    setItems((prev) => [...prev, { productId: "", quantity: 1 }]);
+    setItems((prev) => [...prev, { productId: "", productSearch: "", quantity: 1 }]);
   };
 
   const removeItem = (index: number) => {
@@ -112,6 +116,15 @@ export default function InvoicesPage() {
       return;
     }
 
+    if ((paymentMethod === "Bank Transfer" || paymentMethod === "Kartu Debit/Kredit") && !bankName) {
+      toast({
+        title: "Bank required",
+        description: "Please select a bank for bank transfer or card payment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (amountPaid < estimatedGrandTotal) {
       toast({
         title: "Insufficient payment",
@@ -134,11 +147,12 @@ export default function InvoicesPage() {
         promoCode,
         amountPaid,
         paymentMethod,
+        bankName,
         keterangan,
       });
 
       setCreatedInvoice(response.data);
-      setItems([{ productId: "", quantity: 1 }]);
+      setItems([{ productId: "", productSearch: "", quantity: 1 }]);
       setCustomerName("");
       setTaxRate(11);
       setDiscountType("fixed");
@@ -146,6 +160,7 @@ export default function InvoicesPage() {
       setPromoCode("");
       setAmountPaid(0);
       setPaymentMethod("Tunai");
+      setBankName("");
       setKeterangan("");
       setIsFinished(false);
       await loadProducts();
@@ -215,31 +230,70 @@ export default function InvoicesPage() {
                             key={method}
                             type="button"
                             variant={paymentMethod === method ? "default" : "outline"}
-                            onClick={() => setPaymentMethod(method)}
+                            onClick={() => {
+                              setPaymentMethod(method);
+                              if (method !== "Bank Transfer" && method !== "Kartu Debit/Kredit") {
+                                setBankName("");
+                              }
+                            }}
                           >
                             {method}
                           </Button>
                         ))}
                       </div>
                   </div>
+
+            {(paymentMethod === "Bank Transfer" || paymentMethod === "Kartu Debit/Kredit") && (
+              <div className="space-y-2">
+                <Label htmlFor="bankName">Bank</Label>
+                <select
+                  id="bankName"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value as (typeof BANK_OPTIONS)[number])}
+                  className="w-full h-10 rounded-md border bg-background px-3"
+                >
+                  <option value="">Select bank</option>
+                  {BANK_OPTIONS.map((bank) => (
+                    <option key={bank} value={bank}>
+                      {bank}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-3">
               {items.map((item, index) => {
                 const selectedProduct = allProducts.find((product) => product.id === item.productId);
                 return (
                   <div key={`invoice-item-${index}`} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-7">
-                      <Label>Product</Label>
+                    <div className="col-span-7 space-y-2">
+                      <Label>Search Product</Label>
+                      <Input
+                        placeholder="Type name / SKU / supplier"
+                        value={item.productSearch}
+                        onChange={(e) => updateItem(index, { productSearch: e.target.value })}
+                      />
                       <select
                         value={item.productId}
                         onChange={(e) => updateItem(index, { productId: e.target.value })}
                         className="w-full h-10 rounded-md border bg-background px-3"
                       >
                         <option value="">Select product</option>
-                        {allProducts.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} ({product.sku}) • Supplier: {product.supplier || "Unknown"} - Stock: {product.quantity}
-                          </option>
-                        ))}
+                        {allProducts
+                          .filter((product) => {
+                            const query = item.productSearch.trim().toLowerCase();
+                            if (!query) return true;
+                            return (
+                              product.name.toLowerCase().includes(query) ||
+                              product.sku.toLowerCase().includes(query) ||
+                              (product.supplier || "").toLowerCase().includes(query)
+                            );
+                          })
+                          .map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name} ({product.sku}) • Supplier: {product.supplier || "Unknown"} - Stock: {product.quantity}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
@@ -411,6 +465,7 @@ export default function InvoicesPage() {
 
               <div className="mt-4 text-right space-y-1">
                 <p>Payment Method: {createdInvoice.paymentMethod}</p>
+                <p>Bank: {createdInvoice.bankName || "-"}</p>
                 <p>Subtotal: {formatCurrency(createdInvoice.totalAmount)}</p>
                 <p>Promo Code: {createdInvoice.promoCode || "-"}</p>
                 <p>Discount ({createdInvoice.discountType === "percentage" ? `${createdInvoice.discountValue}%` : formatCurrency(createdInvoice.discountValue)}): -{formatCurrency(createdInvoice.discountAmount)}</p>

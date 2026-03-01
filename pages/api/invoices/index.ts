@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const userId = session.id;
 
   if (req.method === "GET") {
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
     const page = Math.max(Number(req.query.page) || 1, 1);
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
 
@@ -89,6 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           amountPaid: toNumber(invoice.amountPaid),
           changeAmount: toNumber(invoice.changeAmount),
           paymentMethod: invoice.paymentMethod,
+          bankName: typeof invoice.bankName === "string" ? invoice.bankName : "",
           keterangan: invoice.keterangan,
           createdAt: new Date(invoice.createdAt).toISOString(),
           items: Array.isArray(invoice.items)
@@ -180,12 +181,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { customerName, items, taxRate, amountPaid, paymentMethod, keterangan } = req.body as {
+  const { customerName, items, taxRate, amountPaid, paymentMethod, bankName, keterangan } = req.body as {
     customerName?: string;
     items?: Array<{ productId: string; quantity: number }>;
     taxRate?: number;
     amountPaid?: number;
     paymentMethod?: string;
+    bankName?: string;
     keterangan?: string;
     discountType?: "percentage" | "fixed";
     discountValue?: number;
@@ -332,6 +334,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         amountPaid: parsedAmountPaid,
         changeAmount,
         paymentMethod: paymentMethod?.trim() || "Cash",
+        bankName: bankName?.trim() || "",
         keterangan: keterangan?.trim() || "",
         totalAmount,
         createdAt: new Date(),

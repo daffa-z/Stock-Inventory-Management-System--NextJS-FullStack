@@ -80,7 +80,7 @@ export default function InvoiceDataPage() {
     const loadInvoiceData = async () => {
       try {
         setIsLoading(true);
-        const response = await axiosInstance.get("/invoices", { params: { limit: 20, page, search } });
+        const response = await axiosInstance.get("/invoices", { params: { limit: 10, page, search } });
         setData(response.data);
       } catch (error: any) {
         toast({
