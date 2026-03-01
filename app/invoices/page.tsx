@@ -8,13 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
-import { ArrowRight, MinusCircle, PlusCircle, Printer } from "lucide-react";
+import { ArrowRight, PlusCircle, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 
 interface InvoiceItemForm {
   productId: string;
-  productSearch: string;
   quantity: number;
 }
 
@@ -62,7 +61,8 @@ export default function InvoicesPage() {
   const { toast } = useToast();
 
   const [customerName, setCustomerName] = useState("");
-  const [items, setItems] = useState<InvoiceItemForm[]>([{ productId: "", productSearch: "", quantity: 1 }]);
+  const [items, setItems] = useState<InvoiceItemForm[]>([]);
+  const [productSearch, setProductSearch] = useState("");
   const [taxRate, setTaxRate] = useState(11);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [discountValue, setDiscountValue] = useState(0);
@@ -78,17 +78,40 @@ export default function InvoicesPage() {
     loadProducts();
   }, [loadProducts]);
 
-  const addItem = () => {
-    setItems((prev) => [...prev, { productId: "", productSearch: "", quantity: 1 }]);
+  const addProductToInvoice = (productId: string) => {
+    setItems((prev) => {
+      const existing = prev.find((item) => item.productId === productId);
+      if (existing) {
+        return prev.map((item) =>
+          item.productId === productId ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { productId, quantity: 1 }];
+    });
   };
 
-  const removeItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const removeItemByProductId = (productId: string) => {
+    setItems((prev) => prev.filter((item) => item.productId !== productId));
   };
 
-  const updateItem = (index: number, changes: Partial<InvoiceItemForm>) => {
-    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)));
+  const updateItemQuantity = (productId: string, quantity: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId ? { ...item, quantity: Math.max(Number(quantity) || 1, 1) } : item
+      )
+    );
   };
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return allProducts;
+    return allProducts.filter((product) => {
+      const name = (product.name || "").toLowerCase();
+      const sku = (product.sku || "").toLowerCase();
+      const supplier = (product.supplier || "").toLowerCase();
+      return name.includes(query) || sku.includes(query) || supplier.includes(query);
+    });
+  }, [allProducts, productSearch]);
 
   const estimatedTotal = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -152,7 +175,8 @@ export default function InvoicesPage() {
       });
 
       setCreatedInvoice(response.data);
-      setItems([{ productId: "", productSearch: "", quantity: 1 }]);
+      setItems([]);
+      setProductSearch("");
       setCustomerName("");
       setTaxRate(11);
       setDiscountType("fixed");
@@ -262,74 +286,86 @@ export default function InvoicesPage() {
               </div>
             )}
             <div className="space-y-3">
-              {items.map((item, index) => {
-                const selectedProduct = allProducts.find((product) => product.id === item.productId);
-                return (
-                  <div key={`invoice-item-${index}`} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-7 space-y-2">
-                      <Label>Search Product</Label>
-                      <Input
-                        placeholder="Type name / SKU / supplier"
-                        value={item.productSearch}
-                        onChange={(e) => updateItem(index, { productSearch: e.target.value })}
-                      />
-                      <select
-                        value={item.productId}
-                        onChange={(e) => updateItem(index, { productId: e.target.value })}
-                        className="w-full h-10 rounded-md border bg-background px-3"
-                      >
-                        <option value="">Select product</option>
-                        {allProducts
-                          .filter((product) => {
-                            const query = item.productSearch.trim().toLowerCase();
-                            if (!query) return true;
-                            return (
-                              product.name.toLowerCase().includes(query) ||
-                              product.sku.toLowerCase().includes(query) ||
-                              (product.supplier || "").toLowerCase().includes(query)
-                            );
-                          })
-                          .map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} ({product.sku}) • Supplier: {product.supplier || "Unknown"} - Stock: {product.quantity}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
+              <Label htmlFor="productSearch">Add Product</Label>
+              <Input
+                id="productSearch"
+                placeholder="Search by name, SKU, supplier..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 max-h-72 overflow-y-auto pr-1">
+                {filteredProducts.map((product) => {
+                  const alreadyAdded = items.some((item) => item.productId === product.id);
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => addProductToInvoice(product.id)}
+                      className="text-left rounded-lg border p-3 transition hover:shadow-md hover:border-primary/50"
+                    >
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">SKU: {product.sku || "-"}</p>
+                      <p className="text-xs text-muted-foreground">Supplier: {product.supplier || "Unknown"}</p>
+                      <div className="mt-2 flex items-center justify-between text-sm">
+                        <span>Stock: {product.quantity}</span>
+                        <span>{formatCurrency(product.price)}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-primary flex items-center gap-1">
+                        <PlusCircle className="h-3 w-3" />
+                        {alreadyAdded ? "Add one more" : "Add to invoice"}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {!filteredProducts.length && <p className="text-sm text-muted-foreground">No products match your search.</p>}
+            </div>
 
-                    <div className="col-span-3">
-                      <Label>Qty</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={selectedProduct?.quantity || 1}
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-                      />
-                    </div>
+            <div className="space-y-3">
+              <Label>Selected Items</Label>
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No items selected yet. Click a product card to add it.</p>
+              ) : (
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const selectedProduct = allProducts.find((product) => product.id === item.productId);
+                    if (!selectedProduct) return null;
 
-                    <div className="col-span-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full"
-                        onClick={() => removeItem(index)}
-                        disabled={items.length === 1}
-                      >
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <div key={item.productId} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2">
+                        <div className="col-span-7">
+                          <p className="font-medium">{selectedProduct.name}</p>
+                          <p className="text-xs text-muted-foreground">{selectedProduct.sku} • Stock: {selectedProduct.quantity}</p>
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Qty</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={selectedProduct.quantity || 1}
+                            value={item.quantity}
+                            onChange={(e) => updateItemQuantity(item.productId, Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full"
+                            onClick={() => removeItemByProductId(item.productId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="button" variant="outline" onClick={addItem}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
-                 <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(estimatedTotal)}</p>
+              <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(estimatedTotal)}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
