@@ -106,6 +106,26 @@ export default async function handler(
         const categoryName = await findCategoryNameById(categoryId);
         const supplierName = await findSupplierNameById(supplierId);
 
+        const movementCollection = mongoClient.db().collection("stock_movements");
+        const initialQty = toNumber(productDoc.quantity, 0);
+        if (initialQty > 0) {
+          await movementCollection.insertOne({
+            userId,
+            productId: inserted.insertedId.toString(),
+            productName: productDoc.name,
+            category: categoryName,
+            supplier: supplierName,
+            unit: productDoc.unit || "pcs",
+            movementType: "IN",
+            quantity: initialQty,
+            stockBefore: 0,
+            stockAfter: initialQty,
+            invoiceReference: "PRODUCT-INITIAL",
+            notes: `Initial stock from product creation (${productDoc.sku})`,
+            createdAt,
+          });
+        }
+
         res.status(201).json({
           id: inserted.insertedId.toString(),
           ...productDoc,
@@ -177,13 +197,20 @@ export default async function handler(
         const normalizedSellPrice = toNumber(sellPrice ?? price, 0);
         const normalizedBuyPrice = toNumber(buyPrice ?? normalizedSellPrice, 0);
 
+        const previousProduct: any = await collection.findOne({ _id: new ObjectId(id), userId });
+        if (!previousProduct) {
+          return res.status(404).json({ error: "Product not found" });
+        }
+
+        const nextQuantity = toNumber(quantity, 0);
+
         await collection.updateOne(
-          { _id: new ObjectId(id) },
+          { _id: new ObjectId(id), userId },
           {
             $set: {
               name,
               sku,
-              quantity: toNumber(quantity, 0),
+              quantity: nextQuantity,
               status,
               categoryId,
               supplierId,
@@ -195,12 +222,33 @@ export default async function handler(
           }
         );
 
-        const updatedProduct = await collection.findOne({ _id: new ObjectId(id) });
+        const updatedProduct = await collection.findOne({ _id: new ObjectId(id), userId });
         const categoryName = await findCategoryNameById(categoryId);
         const supplierName = await findSupplierNameById(supplierId);
 
         if (!updatedProduct) {
           return res.status(404).json({ error: "Product not found" });
+        }
+
+        const previousQty = toNumber(previousProduct.quantity, 0);
+        const qtyDelta = nextQuantity - previousQty;
+        if (qtyDelta !== 0) {
+          const movementCollection = mongoClient.db().collection("stock_movements");
+          await movementCollection.insertOne({
+            userId,
+            productId: updatedProduct._id.toString(),
+            productName: updatedProduct.name,
+            category: categoryName,
+            supplier: supplierName,
+            unit: updatedProduct.unit || "pcs",
+            movementType: qtyDelta > 0 ? "IN" : "OUT",
+            quantity: Math.abs(qtyDelta),
+            stockBefore: previousQty,
+            stockAfter: nextQuantity,
+            invoiceReference: "PRODUCT-ADJUSTMENT",
+            notes: `Stock adjusted from product update (${updatedProduct.sku})`,
+            createdAt: new Date(),
+          });
         }
 
         res.status(200).json({
