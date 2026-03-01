@@ -43,6 +43,13 @@ interface CreatedInvoice {
 
 const PAYMENT_METHODS = ["Tunai", "Bank Transfer", "E-Wallet", "QRIS"] as const;
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+
 export default function InvoicesPage() {
   const { allProducts, loadProducts } = useProductStore();
   const { toast } = useToast();
@@ -248,7 +255,7 @@ export default function InvoicesPage() {
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
-                 <p className="text-sm text-muted-foreground">Subtotal: ${estimatedTotal.toFixed(2)}</p>
+                 <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(estimatedTotal)}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -285,9 +292,9 @@ export default function InvoicesPage() {
               />
             </div>
             <div className="rounded-md border p-3 text-sm space-y-1">
-              <p>Tax Amount: ${estimatedTaxAmount.toFixed(2)}</p>
-              <p className="font-medium">Grand Total: ${estimatedGrandTotal.toFixed(2)}</p>
-              <p>Return/Change: ${estimatedChange.toFixed(2)}</p>
+              <p>Tax Amount: {formatCurrency(estimatedTaxAmount)}</p>
+              <p className="font-medium">Grand Total: {formatCurrency(estimatedGrandTotal)}</p>
+              <p>Return/Change: {formatCurrency(estimatedChange)}</p>
             </div>
             <div className="flex justify-end">
               <Button type="button" onClick={createInvoice} disabled={isSubmitting}>
@@ -338,8 +345,8 @@ export default function InvoicesPage() {
                       <td className="py-2">{item.sku}</td>
                       <td className="py-2">{item.supplier}</td>
                       <td className="py-2">{item.quantity}</td>
-                      <td className="py-2">${item.price.toFixed(2)}</td>
-                      <td className="py-2 text-right">${item.lineTotal.toFixed(2)}</td>
+                      <td className="py-2">{formatCurrency(item.price)}</td>
+                      <td className="py-2 text-right">{formatCurrency(item.lineTotal)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -347,11 +354,11 @@ export default function InvoicesPage() {
 
               <div className="mt-4 text-right space-y-1">
                 <p>Payment Method: {createdInvoice.paymentMethod}</p>
-                <p>Subtotal: ${createdInvoice.totalAmount.toFixed(2)}</p>
-                <p>Tax ({createdInvoice.taxRate}%): ${createdInvoice.taxAmount.toFixed(2)}</p>
-                <p className="font-semibold text-lg">Grand Total: ${createdInvoice.grandTotal.toFixed(2)}</p>
-                <p>Amount Paid: ${createdInvoice.amountPaid.toFixed(2)}</p>
-                <p>Return/Change: ${createdInvoice.changeAmount.toFixed(2)}</p>
+                <p>Subtotal: {formatCurrency(createdInvoice.totalAmount)}</p>
+                <p>Tax ({createdInvoice.taxRate}%): {formatCurrency(createdInvoice.taxAmount)}</p>
+                <p className="font-semibold text-lg">Grand Total: {formatCurrency(createdInvoice.grandTotal)}</p>
+                <p>Amount Paid: {formatCurrency(createdInvoice.amountPaid)}</p>
+                <p>Return/Change: {formatCurrency(createdInvoice.changeAmount)}</p>
                 <p>Keterangan: {createdInvoice.keterangan || "-"}</p>
               </div>
             </CardContent>

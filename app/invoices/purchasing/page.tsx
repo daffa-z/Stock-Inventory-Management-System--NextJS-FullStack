@@ -38,7 +38,11 @@ interface PurchasingDataResponse {
 }
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export default function InvoicePurchasingPage() {
   const { toast } = useToast();
