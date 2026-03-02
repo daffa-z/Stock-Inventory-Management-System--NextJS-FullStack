@@ -75,6 +75,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           supplier: record.supplier || "Unknown",
           unit: record.unit || "pcs",
           notes: record.notes || "",
+          createdByUserId: record.createdByUserId || record.userId || "",
+          createdByName: record.createdByName || "Unknown",
+          createdByEmail: record.createdByEmail || "",
         }));
 
         return res.status(200).json({
@@ -168,6 +171,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const movementDoc = {
         userId,
+        createdByUserId: session.id,
+        createdByName: session.name || "Unknown",
+        createdByEmail: session.email || "",
         productId,
         productName: product.name || "Unknown",
         category: category?.name || "Unknown",

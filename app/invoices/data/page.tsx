@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface InvoiceItem {
@@ -71,15 +71,21 @@ const formatCurrency = (value: number) =>
 export default function InvoiceDataPage() {
   const { toast } = useToast();
   const [data, setData] = useState<InvoiceDataResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     const loadInvoiceData = async () => {
       try {
-        setIsLoading(true);
+        if (hasLoadedOnce.current) {
+          setIsTableLoading(true);
+        } else {
+          setIsInitialLoading(true);
+        }
         const response = await axiosInstance.get("/invoices", { params: { limit: 10, page, search } });
         setData(response.data);
       } catch (error: any) {
@@ -89,7 +95,9 @@ export default function InvoiceDataPage() {
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
+        setIsTableLoading(false);
+        hasLoadedOnce.current = true;
       }
     };
 
@@ -131,7 +139,7 @@ export default function InvoiceDataPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {isInitialLoading ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">Loading invoice data...</CardContent>
           </Card>
@@ -190,7 +198,7 @@ export default function InvoiceDataPage() {
                     className="md:max-w-md"
                   />
                   <p className="text-sm text-muted-foreground">
-                    Showing {data?.invoices.length || 0} of {data?.pagination.totalCount || 0} invoices
+                    Showing {data?.invoices.length || 0} of {data?.pagination.totalCount || 0} invoices {isTableLoading ? "(updating...)" : ""}
                   </p>
                 </div>
               </CardContent>
@@ -202,6 +210,7 @@ export default function InvoiceDataPage() {
                   <CardTitle>Recent Invoices</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {isTableLoading && <p className="text-xs text-muted-foreground mb-2">Loading recent invoices...</p>}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -264,7 +273,7 @@ export default function InvoiceDataPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={!data?.pagination.hasPrev}
+                  disabled={!data?.pagination.hasPrev || isTableLoading}
                 >
                   Previous
                 </Button>
@@ -272,7 +281,7 @@ export default function InvoiceDataPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setPage((prev) => prev + 1)}
-                  disabled={!data?.pagination.hasNext}
+                  disabled={!data?.pagination.hasNext || isTableLoading}
                 >
                   Next
                 </Button>

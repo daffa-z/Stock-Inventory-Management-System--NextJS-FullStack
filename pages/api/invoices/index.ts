@@ -90,6 +90,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           changeAmount: toNumber(invoice.changeAmount),
           paymentMethod: invoice.paymentMethod,
           bankName: typeof invoice.bankName === "string" ? invoice.bankName : "",
+          createdByUserId: invoice.createdByUserId || invoice.userId || "",
+          createdByName: invoice.createdByName || "Unknown",
+          createdByEmail: invoice.createdByEmail || "",
           keterangan: invoice.keterangan,
           createdAt: new Date(invoice.createdAt).toISOString(),
           items: Array.isArray(invoice.items)
@@ -334,6 +337,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const invoiceDocument = {
         invoiceNumber,
         userId,
+        createdByUserId: session.id,
+        createdByName: session.name || "Unknown",
+        createdByEmail: session.email || "",
         customerName: customerName?.trim() || "Walk-in Customer",
         items: preparedItems.map(({ remainingQuantity, stockBefore, category, unit, ...invoiceItem }) => invoiceItem),
         discountType: parsedDiscountType,
@@ -357,6 +363,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await db.collection("stock_movements").insertMany(
         preparedItems.map((item) => ({
           userId,
+          createdByUserId: session.id,
+          createdByName: session.name || "Unknown",
+          createdByEmail: session.email || "",
           productId: item.productId,
           productName: item.name,
           category: item.category,
