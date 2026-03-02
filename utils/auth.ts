@@ -4,8 +4,6 @@ import jwt from "jsonwebtoken";
 import { PrismaClient, User as PrismaUser } from "@prisma/client";
 import Cookies from "js-cookie"; // Import js-cookie
 import { NextApiRequest, NextApiResponse } from "next";
-import { ObjectId } from "mongodb";
-import { getMongoDb } from "./mongo";
 
 const prisma = new PrismaClient();
 
@@ -92,20 +90,8 @@ export const getSessionServer = async (
 
   let resolvedRole = user.role;
 
-  // Backfill role for existing users that don't have one yet.
   if (!resolvedRole) {
     resolvedRole = "ADMIN";
-    try {
-      const db = await getMongoDb();
-      await db.collection("User").updateOne(
-        { _id: new ObjectId(user.id) },
-        { $set: { role: resolvedRole } }
-      );
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("Failed to backfill user role:", error);
-      }
-    }
   }
 
   const { password: _password, ...sessionUser } = user;
