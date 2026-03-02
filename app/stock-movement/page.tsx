@@ -23,6 +23,7 @@ interface StockMovement {
   category: string;
   supplier: string;
   unit: string;
+  createdByName?: string;
 }
 
 interface MovementResponse {
@@ -211,6 +212,7 @@ export default function StockMovementPage() {
                       <TableHead>Kategori</TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead>Satuan</TableHead>
+                      <TableHead>Input By</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -225,11 +227,12 @@ export default function StockMovementPage() {
                         <TableCell>{movement.category}</TableCell>
                         <TableCell>{movement.supplier}</TableCell>
                         <TableCell>{movement.unit}</TableCell>
+                        <TableCell>{movement.createdByName || "admin"}</TableCell>
                       </TableRow>
                     ))}
                     {!data?.movements.length && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center text-muted-foreground">
                           Belum ada data pergerakan stock.
                         </TableCell>
                       </TableRow>

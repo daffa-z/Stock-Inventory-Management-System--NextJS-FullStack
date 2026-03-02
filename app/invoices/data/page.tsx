@@ -35,6 +35,7 @@ interface Invoice {
   amountPaid: number;
   changeAmount: number;
   paymentMethod: string;
+  createdByName?: string;
   keterangan: string;
   createdAt: string;
   items: InvoiceItem[];
@@ -219,6 +220,7 @@ export default function InvoiceDataPage() {
                           <th className="px-2 py-2">Customer</th>
                           <th className="px-2 py-2">Date</th>
                           <th className="px-2 py-2">Payment</th>
+                          <th className="px-2 py-2">Input By</th>
                           <th className="px-2 py-2 text-right">Total</th>
                           <th className="px-2 py-2 text-right">Detail</th>
                         </tr>
@@ -230,6 +232,7 @@ export default function InvoiceDataPage() {
                             <td className="px-2 py-2">{invoice.customerName}</td>
                             <td className="px-2 py-2">{new Date(invoice.createdAt).toLocaleString()}</td>
                             <td className="px-2 py-2">{invoice.paymentMethod}</td>
+                            <td className="px-2 py-2">{invoice.createdByName || "admin"}</td>
                             <td className="px-2 py-2 text-right">{formatCurrency(invoice.grandTotal)}</td>
                             <td className="px-2 py-2 text-right">
                               <Button type="button" size="sm" variant="outline" onClick={() => setSelectedInvoiceId(invoice.id)}>
@@ -298,6 +301,7 @@ export default function InvoiceDataPage() {
                     <p><span className="font-medium">Customer:</span> {selectedInvoice.customerName}</p>
                     <p><span className="font-medium">Date:</span> {new Date(selectedInvoice.createdAt).toLocaleString()}</p>
                     <p><span className="font-medium">Payment:</span> {selectedInvoice.paymentMethod}</p>
+                    <p><span className="font-medium">Input By:</span> {selectedInvoice.createdByName || "admin"}</p>
                     <p><span className="font-medium">Promo:</span> {selectedInvoice.promoCode || "-"}</p>
                     <p><span className="font-medium">Discount:</span> {formatCurrency(selectedInvoice.discountAmount || 0)} ({selectedInvoice.discountType === "percentage" ? `${selectedInvoice.discountValue || 0}%` : formatCurrency(selectedInvoice.discountValue || 0)})</p>
                     <p><span className="font-medium">Tax:</span> {formatCurrency(selectedInvoice.taxAmount)} ({selectedInvoice.taxRate}%)</p>

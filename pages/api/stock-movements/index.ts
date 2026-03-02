@@ -76,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           unit: record.unit || "pcs",
           notes: record.notes || "",
           createdByUserId: record.createdByUserId || record.userId || "",
-          createdByName: record.createdByName || "Unknown",
+          createdByName: record.createdByName || "admin",
           createdByEmail: record.createdByEmail || "",
         }));
 
@@ -172,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const movementDoc = {
         userId,
         createdByUserId: session.id,
-        createdByName: session.name || "Unknown",
+        createdByName: session.name || "admin",
         createdByEmail: session.email || "",
         productId,
         productName: product.name || "Unknown",
