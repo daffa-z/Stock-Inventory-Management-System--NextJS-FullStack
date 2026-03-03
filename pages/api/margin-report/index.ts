@@ -7,6 +7,8 @@ const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const formatMonthKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSessionServer(req, res);
   if (!session) {
@@ -52,6 +54,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
+    const monthlyMap = new Map<string, { month: string; invoiceCount: number; totalSales: number; totalMargin: number }>();
+
+    invoiceMargins.forEach((invoice) => {
+      const month = formatMonthKey(new Date(invoice.createdAt));
+      const entry = monthlyMap.get(month) || {
+        month,
+        invoiceCount: 0,
+        totalSales: 0,
+        totalMargin: 0,
+      };
+
+      entry.invoiceCount += 1;
+      entry.totalSales += invoice.salesTotal;
+      entry.totalMargin += invoice.margin;
+      monthlyMap.set(month, entry);
+    });
+
+    const monthlySummary = Array.from(monthlyMap.values()).sort((a, b) => b.month.localeCompare(a.month));
+
     const grandTotalMargin = invoiceMargins.reduce((sum, invoice) => sum + invoice.margin, 0);
     const grandTotalSales = invoiceMargins.reduce((sum, invoice) => sum + invoice.salesTotal, 0);
 
@@ -61,6 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         grandTotalSales,
         grandTotalMargin,
       },
+      monthlySummary,
       invoices: invoiceMargins,
     });
   } catch (error) {

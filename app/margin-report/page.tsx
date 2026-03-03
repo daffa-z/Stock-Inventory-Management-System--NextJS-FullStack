@@ -1,11 +1,13 @@
 "use client";
 
 import AuthenticatedLayout from "@/app/components/AuthenticatedLayout";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
+import { Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 interface MarginInvoice {
@@ -17,12 +19,20 @@ interface MarginInvoice {
   margin: number;
 }
 
+interface MonthlyMargin {
+  month: string;
+  invoiceCount: number;
+  totalSales: number;
+  totalMargin: number;
+}
+
 interface MarginResponse {
   summary: {
     invoiceCount: number;
     grandTotalSales: number;
     grandTotalMargin: number;
   };
+  monthlySummary: MonthlyMargin[];
   invoices: MarginInvoice[];
 }
 
@@ -32,6 +42,12 @@ const formatCurrency = (value: number) =>
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(value);
+
+const formatMonth = (monthKey: string) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, (month || 1) - 1, 1));
+  return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+};
 
 export default function MarginReportPage() {
   const { toast } = useToast();
@@ -72,12 +88,99 @@ export default function MarginReportPage() {
     });
   }, [data, search]);
 
+  const downloadMonthlyXlsx = async () => {
+    if (!data?.monthlySummary?.length) {
+      toast({ title: "Data kosong", description: "Belum ada data margin bulanan untuk diunduh." });
+      return;
+    }
+
+    const XLSX = await import("xlsx");
+    const rows = data.monthlySummary.map((item) => ({
+      Bulan: formatMonth(item.month),
+      "Jumlah Faktur": item.invoiceCount,
+      "Total Penjualan": item.totalSales,
+      "Total Margin": item.totalMargin,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Margin Bulanan");
+    XLSX.writeFile(workbook, `laporan-margin-bulanan-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const downloadMonthlyPdf = () => {
+    if (!data?.monthlySummary?.length) {
+      toast({ title: "Data kosong", description: "Belum ada data margin bulanan untuk diunduh." });
+      return;
+    }
+
+    const rows = data.monthlySummary
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd;">${formatMonth(item.month)}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${item.invoiceCount}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalSales)}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalMargin)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const printWindow = window.open("", "_blank", "width=1000,height=700");
+    if (!printWindow) {
+      toast({ title: "Gagal membuka jendela cetak", description: "Izinkan pop-up browser lalu coba lagi." });
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Laporan Margin Bulanan</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Laporan Margin Bulanan</h2>
+          <p>Tanggal cetak: ${new Date().toLocaleString("id-ID")}</p>
+          <table style="border-collapse: collapse; width: 100%;">
+            <thead>
+              <tr>
+                <th style="padding:8px;border:1px solid #ddd;text-align:left;">Bulan</th>
+                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Jumlah Faktur</th>
+                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Penjualan</th>
+                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   return (
     <AuthenticatedLayout>
       <div className="space-y-6 p-4 lg:p-0">
-        <div>
-          <h2 className="text-2xl font-bold">Laporan Margin</h2>
-          <p className="text-sm text-muted-foreground">Ringkasan margin dari seluruh data faktur yang tersimpan di database.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold">Laporan Margin</h2>
+            <p className="text-sm text-muted-foreground">Ringkasan margin dari seluruh data faktur yang tersimpan di database.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={downloadMonthlyPdf}>
+              <Download className="h-4 w-4 mr-2" />
+              Unduh PDF Margin Bulanan
+            </Button>
+            <Button type="button" onClick={downloadMonthlyXlsx}>
+              <Download className="h-4 w-4 mr-2" />
+              Unduh XLSX Margin Bulanan
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -106,6 +209,41 @@ export default function MarginReportPage() {
                 <CardContent className="text-2xl font-semibold text-emerald-600">{formatCurrency(data?.summary.grandTotalMargin || 0)}</CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Margin Bulanan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Bulan</TableHead>
+                        <TableHead className="text-right">Jumlah Faktur</TableHead>
+                        <TableHead className="text-right">Total Penjualan</TableHead>
+                        <TableHead className="text-right">Total Margin</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.monthlySummary?.map((item) => (
+                        <TableRow key={item.month}>
+                          <TableCell className="font-medium">{formatMonth(item.month)}</TableCell>
+                          <TableCell className="text-right">{item.invoiceCount}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.totalSales)}</TableCell>
+                          <TableCell className="text-right font-semibold text-emerald-600">{formatCurrency(item.totalMargin)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {!data?.monthlySummary?.length && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground">Belum ada data margin bulanan.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
