@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AiFillProduct } from "react-icons/ai";
-import { FiActivity, FiBarChart, FiFileText, FiHome, FiRepeat, FiUsers } from "react-icons/fi"; // Import icons for new nav items
+import { FiActivity, FiBarChart, FiDollarSign, FiFileText, FiHome, FiRepeat, FiUsers } from "react-icons/fi"; // Import icons for new nav items
 import { HiOutlineReceiptTax } from "react-icons/hi";
 import { useAuth } from "../authContext";
 import { ModeToggle } from "./ModeToggle";
@@ -107,6 +107,15 @@ export default function AppHeader() {
         >
           <FiUsers className="mr-2 h-4 w-4" />
           Pengguna
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleNavigation("/margin-report")}
+          className="text-primary-foreground hover:bg-primary-dark"
+        >
+          <FiDollarSign className="mr-2 h-4 w-4" />
+          Laporan Margin
         </Button>
         <Button
           variant="ghost"
