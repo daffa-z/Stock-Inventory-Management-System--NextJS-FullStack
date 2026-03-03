@@ -15,6 +15,7 @@ export default function AppHeader() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isAdmin = (user?.role || "USER").toUpperCase() === "ADMIN";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -63,24 +64,28 @@ export default function AppHeader() {
 
       {/* Navigation Links */}
       <div className="flex items-center space-x-2 mt-4 sm:mt-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiHome className="mr-2 h-4 w-4" />
-          Dasbor
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/business-insights")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiBarChart className="mr-2 h-4 w-4" />
-          Wawasan Bisnis
-        </Button>
+        {isAdmin && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiHome className="mr-2 h-4 w-4" />
+              Dasbor
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/business-insights")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiBarChart className="mr-2 h-4 w-4" />
+              Wawasan Bisnis
+            </Button>
+          </>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -90,51 +95,55 @@ export default function AppHeader() {
           <HiOutlineReceiptTax className="mr-2 h-4 w-4" />
           Faktur
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/stock-movement")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiRepeat className="mr-2 h-4 w-4" />
-          Pergerakan Stok
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/users")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiUsers className="mr-2 h-4 w-4" />
-          Pengguna
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/margin-report")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiDollarSign className="mr-2 h-4 w-4" />
-          Laporan Margin
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/api-docs")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiFileText className="mr-2 h-4 w-4" />
-          Dokumentasi API
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/api-status")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiActivity className="mr-2 h-4 w-4" />
-          Status API
-        </Button>
+        {isAdmin && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/stock-movement")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiRepeat className="mr-2 h-4 w-4" />
+              Pergerakan Stok
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/users")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiUsers className="mr-2 h-4 w-4" />
+              Pengguna
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/margin-report")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiDollarSign className="mr-2 h-4 w-4" />
+              Laporan Margin
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/api-docs")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiFileText className="mr-2 h-4 w-4" />
+              Dokumentasi API
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/api-status")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiActivity className="mr-2 h-4 w-4" />
+              Status API
+            </Button>
+          </>
+        )}
 
         <ModeToggle />
         <Button
