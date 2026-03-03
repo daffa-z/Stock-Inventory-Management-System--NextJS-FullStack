@@ -8,6 +8,7 @@ import axiosInstance from "@/utils/axiosInstance";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { openAndPrintTypewriterReport } from "@/utils/pdfReportTemplate";
 
 interface InvoiceItem {
   productId: string;
@@ -197,55 +198,29 @@ export default function InvoicePurchasingPage() {
       return;
     }
 
-    const rows = monthlySalesData.monthlySales
-      .map(
-        (item) => `
-          <tr>
-            <td style="padding:8px;border:1px solid #ddd;">${formatMonth(item.month)}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${item.invoiceCount}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalSales)}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalTax)}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalDiscount)}</td>
-          </tr>
-        `
-      )
-      .join("");
+    const didOpen = openAndPrintTypewriterReport({
+      documentTitle: "Laporan Penjualan Bulanan",
+      reportHeading: "Laporan Penjualan Bulanan",
+      generatedAt: new Date().toLocaleString("id-ID"),
+      tableHeaders: ["Bulan", "Jumlah Faktur", "Total Penjualan", "Total Pajak", "Total Diskon"],
+      tableRows: monthlySalesData.monthlySales.map((item) => [
+        formatMonth(item.month),
+        String(item.invoiceCount),
+        formatCurrency(item.totalSales),
+        formatCurrency(item.totalTax),
+        formatCurrency(item.totalDiscount),
+      ]),
+      summaryLines: [
+        `Total Faktur: ${monthlySalesData.summary.invoiceCount}`,
+        `Total Penjualan: ${formatCurrency(monthlySalesData.summary.totalSales)}`,
+        `Total Pajak: ${formatCurrency(monthlySalesData.summary.totalTax)}`,
+        `Total Diskon: ${formatCurrency(monthlySalesData.summary.totalDiscount)}`,
+      ],
+    });
 
-    const printWindow = window.open("", "_blank", "width=1000,height=700");
-    if (!printWindow) {
+    if (!didOpen) {
       toast({ title: "Gagal membuka jendela cetak", description: "Izinkan pop-up browser lalu coba lagi." });
-      return;
     }
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Laporan Penjualan Bulanan</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Laporan Penjualan Bulanan</h2>
-          <p>Tanggal cetak: ${new Date().toLocaleString("id-ID")}</p>
-          <table style="border-collapse: collapse; width: 100%;">
-            <thead>
-              <tr>
-                <th style="padding:8px;border:1px solid #ddd;text-align:left;">Bulan</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Jumlah Faktur</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Penjualan</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Pajak</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Diskon</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   };
 
   const dailyTrend = useMemo(() => {

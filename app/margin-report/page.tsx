@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
 import { Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { openAndPrintTypewriterReport } from "@/utils/pdfReportTemplate";
 
 interface MarginInvoice {
   id: string;
@@ -114,53 +115,27 @@ export default function MarginReportPage() {
       return;
     }
 
-    const rows = data.monthlySummary
-      .map(
-        (item) => `
-          <tr>
-            <td style="padding:8px;border:1px solid #ddd;">${formatMonth(item.month)}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${item.invoiceCount}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalSales)}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatCurrency(item.totalMargin)}</td>
-          </tr>
-        `
-      )
-      .join("");
+    const didOpen = openAndPrintTypewriterReport({
+      documentTitle: "Laporan Margin Bulanan",
+      reportHeading: "Laporan Margin Bulanan",
+      generatedAt: new Date().toLocaleString("id-ID"),
+      tableHeaders: ["Bulan", "Jumlah Faktur", "Total Penjualan", "Total Margin"],
+      tableRows: data.monthlySummary.map((item) => [
+        formatMonth(item.month),
+        String(item.invoiceCount),
+        formatCurrency(item.totalSales),
+        formatCurrency(item.totalMargin),
+      ]),
+      summaryLines: [
+        `Total Faktur: ${data.summary.invoiceCount}`,
+        `Grand Total Penjualan: ${formatCurrency(data.summary.grandTotalSales)}`,
+        `Grand Total Margin: ${formatCurrency(data.summary.grandTotalMargin)}`,
+      ],
+    });
 
-    const printWindow = window.open("", "_blank", "width=1000,height=700");
-    if (!printWindow) {
+    if (!didOpen) {
       toast({ title: "Gagal membuka jendela cetak", description: "Izinkan pop-up browser lalu coba lagi." });
-      return;
     }
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Laporan Margin Bulanan</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Laporan Margin Bulanan</h2>
-          <p>Tanggal cetak: ${new Date().toLocaleString("id-ID")}</p>
-          <table style="border-collapse: collapse; width: 100%;">
-            <thead>
-              <tr>
-                <th style="padding:8px;border:1px solid #ddd;text-align:left;">Bulan</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Jumlah Faktur</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Penjualan</th>
-                <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total Margin</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   };
 
   return (
