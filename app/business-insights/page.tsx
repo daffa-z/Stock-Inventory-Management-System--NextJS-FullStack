@@ -64,6 +64,33 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+
+const formatTimelineDate = (date: Date) =>
+  date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+const getPeriodTimeline = (period: "daily" | "weekly" | "monthly") => {
+  const end = new Date();
+  const start = new Date(end);
+
+  if (period === "daily") {
+    start.setHours(0, 0, 0, 0);
+  } else if (period === "weekly") {
+    const day = start.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    start.setDate(start.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+  } else {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+  }
+
+  return `${formatTimelineDate(start)} - ${formatTimelineDate(end)}`;
+};
+
 export default function BusinessInsightsPage() {
   const { allProducts } = useProductStore();
   const { user } = useAuth();
@@ -396,6 +423,7 @@ export default function BusinessInsightsPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Daily</CardTitle>
+                    <p className="text-xs text-muted-foreground">Timeline: {getPeriodTimeline("daily")}</p>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm"><span>Total Penjualan</span><span className="font-semibold">{formatCurrency(salesSummary?.periods.daily.sales || 0)}</span></div>
@@ -407,6 +435,7 @@ export default function BusinessInsightsPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Weekly</CardTitle>
+                    <p className="text-xs text-muted-foreground">Timeline: {getPeriodTimeline("weekly")}</p>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm"><span>Total Penjualan</span><span className="font-semibold">{formatCurrency(salesSummary?.periods.weekly.sales || 0)}</span></div>
@@ -418,6 +447,7 @@ export default function BusinessInsightsPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Monthly</CardTitle>
+                    <p className="text-xs text-muted-foreground">Timeline: {getPeriodTimeline("monthly")}</p>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm"><span>Total Penjualan</span><span className="font-semibold">{formatCurrency(salesSummary?.periods.monthly.sales || 0)}</span></div>
