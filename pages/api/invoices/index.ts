@@ -29,6 +29,41 @@ const createInvoiceNumber = () => {
   return `INV-${datePart}-${randomPart}`;
 };
 
+
+const normalizeInvoice = (invoice: any) => ({
+  id: String(invoice._id),
+  invoiceNumber: invoice.invoiceNumber,
+  customerName: invoice.customerName,
+  totalAmount: toNumber(invoice.totalAmount),
+  discountType: normalizeDiscountType(invoice.discountType),
+  discountValue: toNumber(invoice.discountValue),
+  discountAmount: toNumber(invoice.discountAmount),
+  promoCode: typeof invoice.promoCode === "string" ? invoice.promoCode : "",
+  taxRate: toNumber(invoice.taxRate),
+  taxAmount: toNumber(invoice.taxAmount),
+  grandTotal: toNumber(invoice.grandTotal),
+  amountPaid: toNumber(invoice.amountPaid),
+  changeAmount: toNumber(invoice.changeAmount),
+  paymentMethod: invoice.paymentMethod,
+  bankName: typeof invoice.bankName === "string" ? invoice.bankName : "",
+  createdByUserId: invoice.createdByUserId || invoice.userId || "",
+  createdByName: invoice.createdByName || "admin",
+  createdByEmail: invoice.createdByEmail || "",
+  keterangan: invoice.keterangan,
+  createdAt: new Date(invoice.createdAt).toISOString(),
+  items: Array.isArray(invoice.items)
+    ? invoice.items.map((item: any) => ({
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku,
+        supplier: item.supplier,
+        price: toNumber(item.price),
+        quantity: toNumber(item.quantity),
+        lineTotal: toNumber(item.lineTotal),
+      }))
+    : [],
+});
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSessionServer(req, res);
   if (!session) {
@@ -56,9 +91,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const db = client.db(dbName);
         const invoiceCollection = db.collection("invoices");
 
-        const query: any = { userId };
+        const analyticsQuery: any = { userId };
+        const recentInvoiceQuery: any = { userId };
+
         if (search) {
-          query.$or = [
+          recentInvoiceQuery.$or = [
             { invoiceNumber: { $regex: search, $options: "i" } },
             { customerName: { $regex: search, $options: "i" } },
             { promoCode: { $regex: search, $options: "i" } },
@@ -67,48 +104,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ];
         }
 
-        const totalCount = await invoiceCollection.countDocuments(query);
+        const totalCount = await invoiceCollection.countDocuments(recentInvoiceQuery);
         const totalPages = Math.max(Math.ceil(totalCount / limit), 1);
         const safePage = Math.min(page, totalPages);
         const skip = (safePage - 1) * limit;
 
-        const invoices = await invoiceCollection.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray();
+        const invoices = await invoiceCollection.find(recentInvoiceQuery).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray();
+        const allInvoices = await invoiceCollection.find(analyticsQuery).toArray();
 
-        const normalizedInvoices = invoices.map((invoice: any) => ({
-          id: String(invoice._id),
-          invoiceNumber: invoice.invoiceNumber,
-          customerName: invoice.customerName,
-          totalAmount: toNumber(invoice.totalAmount),
-          discountType: normalizeDiscountType(invoice.discountType),
-          discountValue: toNumber(invoice.discountValue),
-          discountAmount: toNumber(invoice.discountAmount),
-          promoCode: typeof invoice.promoCode === "string" ? invoice.promoCode : "",
-          taxRate: toNumber(invoice.taxRate),
-          taxAmount: toNumber(invoice.taxAmount),
-          grandTotal: toNumber(invoice.grandTotal),
-          amountPaid: toNumber(invoice.amountPaid),
-          changeAmount: toNumber(invoice.changeAmount),
-          paymentMethod: invoice.paymentMethod,
-          bankName: typeof invoice.bankName === "string" ? invoice.bankName : "",
-          createdByUserId: invoice.createdByUserId || invoice.userId || "",
-          createdByName: invoice.createdByName || "admin",
-          createdByEmail: invoice.createdByEmail || "",
-          keterangan: invoice.keterangan,
-          createdAt: new Date(invoice.createdAt).toISOString(),
-          items: Array.isArray(invoice.items)
-            ? invoice.items.map((item: any) => ({
-                productId: item.productId,
-                name: item.name,
-                sku: item.sku,
-                supplier: item.supplier,
-                price: toNumber(item.price),
-                quantity: toNumber(item.quantity),
-                lineTotal: toNumber(item.lineTotal),
-              }))
-            : [],
-        }));
+        const normalizedInvoices = invoices.map(normalizeInvoice);
+        const normalizedAnalyticsInvoices = allInvoices.map(normalizeInvoice);
 
-        const totals = normalizedInvoices.reduce(
+        const totals = normalizedAnalyticsInvoices.reduce(
           (acc, invoice) => {
             acc.revenue += invoice.grandTotal;
             acc.taxCollected += invoice.taxAmount;
@@ -123,7 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const supplierMap = new Map<string, { supplier: string; quantity: number; revenue: number }>();
         const productMap = new Map<string, { productId: string; name: string; sku: string; quantity: number; revenue: number }>();
 
-        normalizedInvoices.forEach((invoice) => {
+        normalizedAnalyticsInvoices.forEach((invoice) => {
           invoice.items.forEach((item) => {
             const supplierKey = item.supplier || "Unknown";
             const supplierEntry = supplierMap.get(supplierKey) || { supplier: supplierKey, quantity: 0, revenue: 0 };
