@@ -592,6 +592,20 @@ export default function InvoicesPage() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 border-b border-black pb-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-16 w-16 rounded-full border border-black flex items-center justify-center text-xs font-bold" style={{ fontFamily: "Times New Roman, serif" }}>
+                    KWS
+                  </div>
+                  <div className="leading-tight" style={{ fontFamily: "Times New Roman, serif" }}>
+                    <p className="text-2xl font-bold">KOPERASI PEMASARAN</p>
+                    <p className="text-2xl font-bold">DUA WIBAWA SEJAHTERA</p>
+                    <p className="text-sm font-bold text-sky-700">NOMOR AHU-0001456.AH.01.29.TAHUN 2026</p>
+                    <p className="text-xs">Jl. Pelita I Dukuh Kaso Wetan No. 25 Desa Sarwodadi Kecamatan Comal, Kabupaten Pemalang</p>
+                  </div>
+                </div>
+              </div>
+
               <h3 className="text-xl font-bold mb-3 text-center">Rincian Transaksi Penjualan</h3>
               <table className="w-full border-collapse">
                 <thead>
