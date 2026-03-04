@@ -3,6 +3,15 @@ import { ObjectId } from "mongodb";
 import { getSessionServer } from "@/utils/auth";
 import { getMongoDb } from "@/utils/mongo";
 
+
+type UserDocument = {
+  name?: string;
+  email?: string;
+  username?: string;
+  role?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 const normalizeRole = (role: unknown) => {
   const value = typeof role === "string" ? role.trim().toUpperCase() : "";
   if (value === "ADMIN" || value === "USER" || value === "DEV") {
@@ -24,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const db = await getMongoDb();
-    const usersCollection = db.collection("User");
+    const usersCollection = db.collection<UserDocument>("User");
 
     if (req.method === "PUT") {
       const { name, username, role } = req.body as {
@@ -68,18 +77,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { returnDocument: "after" }
       );
 
-      if (!result) {
+      const updatedUser = result.value;
+      if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
 
       return res.status(200).json({
-        id: String(result._id),
-        name: result.name || "Unknown",
-        email: result.email || "",
-        username: result.username || "",
-        role: result.role || "USER",
-        createdAt: result.createdAt,
-        updatedAt: result.updatedAt,
+        id: String(updatedUser._id),
+        name: updatedUser.name || "Unknown",
+        email: updatedUser.email || "",
+        username: updatedUser.username || "",
+        role: updatedUser.role || "USER",
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
       });
     }
 
