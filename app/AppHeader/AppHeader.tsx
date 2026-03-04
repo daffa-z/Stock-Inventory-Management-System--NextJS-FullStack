@@ -107,6 +107,11 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+
+            <Button variant="ghost" size="sm" onClick={() => handleNavigation("/suppliers")} className="text-primary-foreground hover:bg-primary-dark">
+              <FiUsers className="mr-2 h-4 w-4" />
+              Supplier
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => handleNavigation("/users")} className="text-primary-foreground hover:bg-primary-dark">
               <FiUsers className="mr-2 h-4 w-4" />
               Pengguna
