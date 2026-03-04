@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AiFillProduct } from "react-icons/ai";
+import { FaTruck } from "react-icons/fa";
 import { FiActivity, FiBarChart, FiFileText, FiHome, FiUsers } from "react-icons/fi";
 import { HiOutlineReceiptTax } from "react-icons/hi";
 import { useAuth } from "../authContext";
@@ -21,6 +22,7 @@ export default function AppHeader() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const role = (user?.role || "USER").toUpperCase();
   const isAdmin = role === "ADMIN";
   const isDev = role === "DEV";
@@ -31,7 +33,6 @@ export default function AppHeader() {
 
     try {
       await logout();
-
       toast({
         title: "Berhasil keluar!",
         description: "Anda berhasil keluar.",
@@ -110,16 +111,17 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-
             <Button variant="ghost" size="sm" onClick={() => handleNavigation("/suppliers")} className="text-primary-foreground hover:bg-primary-dark">
-              <i className="bi bi-truck mr-2 h-4 w-4" />
+              <FaTruck className="mr-2 h-4 w-4" />
               Supplier
             </Button>
+
             <Button variant="ghost" size="sm" onClick={() => handleNavigation("/users")} className="text-primary-foreground hover:bg-primary-dark">
               <FiUsers className="mr-2 h-4 w-4" />
               Pengguna
             </Button>
-{isDev && (
+
+            {isDev && (
               <>
                 <Button variant="ghost" size="sm" onClick={() => handleNavigation("/api-docs")} className="text-primary-foreground hover:bg-primary-dark">
                   <FiFileText className="mr-2 h-4 w-4" />
