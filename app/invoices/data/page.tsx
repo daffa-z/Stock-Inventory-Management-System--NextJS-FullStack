@@ -131,7 +131,7 @@ export default function InvoiceDataPage() {
             <p className="text-sm text-muted-foreground">Monitor sales invoices before building your final reports.</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/invoices">
+            <Link href="/invoices/create">
               <Button variant="outline">Create Invoice</Button>
             </Link>
             <Link href="/invoices/purchasing">

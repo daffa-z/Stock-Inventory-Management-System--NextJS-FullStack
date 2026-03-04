@@ -253,7 +253,7 @@ export default function InvoicePurchasingPage() {
             <Link href="/invoices/data">
               <Button variant="outline">Invoice Data</Button>
             </Link>
-            <Link href="/invoices">
+            <Link href="/invoices/create">
               <Button>Create Invoice</Button>
             </Link>
           </div>
