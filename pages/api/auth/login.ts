@@ -82,32 +82,35 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: "User data corrupted: id missing" });
     }
 
-    let resolvedRole = (user as any).role as string | undefined;
-    if (!resolvedRole) {
-      resolvedRole = "ADMIN";
-      try {
+    let mongoUser: any = null;
+    try {
+      if (ObjectId.isValid(user.id)) {
         const db = await getMongoDb();
-        await db.collection("User").updateOne(
-          { _id: new ObjectId(user.id) },
-          { $set: { role: resolvedRole } }
-        );
-      } catch (roleError) {
-        console.error("Failed to backfill user role during login:", roleError);
+        mongoUser = await db.collection("User").findOne({ _id: new ObjectId(user.id) });
       }
+    } catch (mongoError) {
+      console.error("Failed to read Mongo user during login:", mongoError);
     }
 
-    const resolvedLokasi = typeof (user as any).lokasi === "string" && (user as any).lokasi.trim()
-      ? (user as any).lokasi.trim()
-      : "PUSAT";
-    if (!(user as any).lokasi) {
+    const resolvedRole =
+      (typeof mongoUser?.role === "string" && mongoUser.role.trim()) ||
+      (typeof (user as any).role === "string" && (user as any).role.trim()) ||
+      "ADMIN";
+
+    const resolvedLokasi =
+      (typeof mongoUser?.lokasi === "string" && mongoUser.lokasi.trim()) ||
+      (typeof (user as any).lokasi === "string" && (user as any).lokasi.trim()) ||
+      "PUSAT";
+
+    if (!mongoUser?.role || !mongoUser?.lokasi) {
       try {
         const db = await getMongoDb();
         await db.collection("User").updateOne(
           { _id: new ObjectId(user.id) },
-          { $set: { lokasi: resolvedLokasi } }
+          { $set: { role: resolvedRole, lokasi: resolvedLokasi } }
         );
-      } catch (lokasiError) {
-        console.error("Failed to backfill user lokasi during login:", lokasiError);
+      } catch (backfillError) {
+        console.error("Failed to backfill user role/lokasi during login:", backfillError);
       }
     }
 
