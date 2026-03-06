@@ -27,6 +27,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+
+  const role = (session.role || "USER").toUpperCase();
+  const isDev = role === "DEV";
+
   const id = String(req.query.id || "").trim();
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid user id" });
@@ -37,6 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const usersCollection = db.collection<UserDocument>("User");
 
     if (req.method === "PUT") {
+      if (!isDev) {
+        return res.status(403).json({ error: "Only DEV can edit user data" });
+      }
       const { name, username, role, lokasi } = req.body as {
         name?: string;
         username?: string;
@@ -105,6 +112,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "DELETE") {
+      if (!isDev) {
+        return res.status(403).json({ error: "Only DEV can edit user data" });
+      }
       if (session.id === id) {
         return res.status(400).json({ error: "You cannot delete your own account" });
       }

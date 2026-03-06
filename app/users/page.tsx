@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
 import { useEffect, useState } from "react";
+import { useAuth } from "../authContext";
 
 interface UserRecord {
   id: string;
@@ -44,6 +45,8 @@ interface EditForm {
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isDev = (user?.role || "USER").toUpperCase() === "DEV";
   const [data, setData] = useState<UsersResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -88,6 +91,10 @@ export default function UsersPage() {
 
   const saveEdit = async () => {
     if (!editingUser) return;
+    if (!isDev) {
+      toast({ title: "Akses ditolak", description: "Hanya role DEV yang dapat mengubah data pengguna.", variant: "destructive" });
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -112,6 +119,11 @@ export default function UsersPage() {
   };
 
   const deleteUser = async (user: UserRecord) => {
+    if (!isDev) {
+      toast({ title: "Akses ditolak", description: "Hanya role DEV yang dapat mengubah data pengguna.", variant: "destructive" });
+      return;
+    }
+
     const confirmed = window.confirm(`Hapus pengguna ${user.name}? Tindakan ini tidak dapat dibatalkan.`);
     if (!confirmed) return;
 
@@ -148,6 +160,8 @@ export default function UsersPage() {
               }}
             />
 
+            {!isDev && <p className="text-xs text-muted-foreground">Hanya role DEV dapat edit/hapus data pengguna.</p>}
+
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Memuat data pengguna...</p>
             ) : (
@@ -177,7 +191,7 @@ export default function UsersPage() {
                         <TableCell>{new Date(user.updatedAt).toLocaleString("id-ID")}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={() => openEditDialog(user)}>
+                            <Button type="button" size="sm" variant="outline" onClick={() => openEditDialog(user)} disabled={!isDev}>
                               Edit
                             </Button>
                             <Button
@@ -185,7 +199,7 @@ export default function UsersPage() {
                               size="sm"
                               variant="destructive"
                               onClick={() => deleteUser(user)}
-                              disabled={deletingUserId === user.id}
+                              disabled={!isDev || deletingUserId === user.id}
                             >
                               {deletingUserId === user.id ? "Menghapus..." : "Hapus"}
                             </Button>
