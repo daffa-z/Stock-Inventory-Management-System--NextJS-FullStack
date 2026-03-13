@@ -71,7 +71,6 @@ export default function InvoicesPage() {
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [discountValue, setDiscountValue] = useState(0);
   const [promoCode, setPromoCode] = useState("");
-  const [amountPaid, setAmountPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>("Tunai");
   const [bankName, setBankName] = useState<(typeof BANK_OPTIONS)[number] | "">("");
   const [keterangan, setKeterangan] = useState("");
@@ -137,7 +136,8 @@ export default function InvoicesPage() {
   const estimatedTaxableAmount = useMemo(() => Math.max(estimatedTotal - estimatedDiscountAmount, 0), [estimatedDiscountAmount, estimatedTotal]);
   const estimatedTaxAmount = useMemo(() => estimatedTaxableAmount * (taxRate / 100), [estimatedTaxableAmount, taxRate]);
   const estimatedGrandTotal = useMemo(() => estimatedTaxableAmount + estimatedTaxAmount, [estimatedTaxAmount, estimatedTaxableAmount]);
-  const estimatedChange = useMemo(() => Math.max(amountPaid - estimatedGrandTotal, 0), [amountPaid, estimatedGrandTotal]);
+  const amountPaid = useMemo(() => estimatedGrandTotal, [estimatedGrandTotal]);
+  const estimatedChange = 0;
   const getFilteredItems = () => items.filter((item) => item.productId && item.quantity > 0);
 
   const validateInvoiceInput = () => {
@@ -152,15 +152,6 @@ export default function InvoicesPage() {
       toast({
         title: "Bank required",
         description: "Please select a bank for bank transfer or card payment.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    if (amountPaid < estimatedGrandTotal) {
-      toast({
-        title: "Insufficient payment",
-        description: "Amount paid must be greater than or equal to grand total.",
         variant: "destructive",
       });
       return false;
@@ -197,7 +188,6 @@ export default function InvoicesPage() {
       setDiscountType("fixed");
       setDiscountValue(0);
       setPromoCode("");
-      setAmountPaid(0);
       setPaymentMethod("Tunai");
       setBankName("");
       setKeterangan("");
@@ -471,7 +461,7 @@ export default function InvoicesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="taxRate">Tax Information (%)</Label>
                 <Input
@@ -480,16 +470,6 @@ export default function InvoicesPage() {
                   min={0}
                   value={taxRate}
                   onChange={(e) => setTaxRate(Math.max(Number(e.target.value) || 0, 0))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amountPaid">Amount Paid</Label>
-                <Input
-                  id="amountPaid"
-                  type="number"
-                  min={0}
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(Math.max(Number(e.target.value) || 0, 0))}
                 />
               </div>
             </div>

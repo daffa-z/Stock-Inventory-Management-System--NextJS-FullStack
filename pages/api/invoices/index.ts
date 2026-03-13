@@ -231,11 +231,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { customerName, items, taxRate, amountPaid, paymentMethod, bankName, keterangan, signatureName } = req.body as {
+  const { customerName, items, taxRate, paymentMethod, bankName, keterangan, signatureName } = req.body as {
     customerName?: string;
     items?: Array<{ productId: string; quantity: number }>;
     taxRate?: number;
-    amountPaid?: number;
     paymentMethod?: string;
     bankName?: string;
     keterangan?: string;
@@ -374,12 +373,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const parsedTaxRate = Number.isFinite(Number(taxRate)) ? Math.max(Number(taxRate), 0) : 0;
       const taxAmount = taxableAmount * (parsedTaxRate / 100);
       const grandTotal = taxableAmount + taxAmount;
-      const parsedAmountPaid = Number.isFinite(Number(amountPaid)) ? Math.max(Number(amountPaid), 0) : 0;
-      const changeAmount = parsedAmountPaid - grandTotal;
-
-      if (parsedAmountPaid < grandTotal) {
-        return res.status(400).json({ error: "Amount paid must be greater than or equal to grand total" });
-      }
+      const parsedAmountPaid = grandTotal;
+      const changeAmount = 0;
 
       const invoiceNumber = createInvoiceNumber();
       const invoiceDocument = {
