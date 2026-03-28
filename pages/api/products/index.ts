@@ -23,6 +23,10 @@ const toNumber = (value: unknown, fallback = 0) => {
 };
 
 const toRoundedTwo = (value: number) => Math.round(value * 100) / 100;
+const calculateMarginPercent = (buyPrice: number, sellPrice: number) => {
+  if (buyPrice <= 0) return 0;
+  return toRoundedTwo(((sellPrice - buyPrice) / buyPrice) * 100);
+};
 
 const toIsoDate = (value: unknown) => {
   const date = value ? new Date(value as string | number | Date) : new Date();
@@ -89,15 +93,9 @@ export default async function handler(
         }
 
         const normalizedBuyPrice = toNumber(buyPrice ?? price, 0);
-        const minimumMarginPercent = Math.max(toNumber(req.body.minimumMarginPercent, 10), 0);
-        const minSellPrice = toRoundedTwo(normalizedBuyPrice * (1 + minimumMarginPercent / 100));
-        const requestedSellPrice = toNumber(sellPrice ?? price, minSellPrice);
-        const normalizedSellPrice = Math.max(requestedSellPrice, minSellPrice);
+        const normalizedSellPrice = toNumber(sellPrice ?? price, 0);
         const hetPrice = toNumber(req.body.hetPrice, normalizedSellPrice);
-
-        if (hetPrice > 0 && normalizedSellPrice > hetPrice) {
-          return res.status(400).json({ error: "Harga jual tidak boleh melebihi HET" });
-        }
+        const minimumMarginPercent = calculateMarginPercent(normalizedBuyPrice, normalizedSellPrice);
 
         const createdAt = new Date();
 
@@ -170,9 +168,11 @@ export default async function handler(
             const buy = toNumber(product.buyPrice, toNumber(product.price, 0));
             const existingSell = toNumber(product.sellPrice, toNumber(product.price, 0));
             const existingMargin = product.minimumMarginPercent;
-            const minimumMarginPercent = typeof existingMargin === "number" ? Math.max(existingMargin, 0) : 10;
-            const migratedSellPrice = typeof existingMargin === "number" ? existingSell : toRoundedTwo(existingSell * 1.1);
-            const hetPrice = toNumber(product.hetPrice, migratedSellPrice);
+            const minimumMarginPercent =
+              typeof existingMargin === "number"
+                ? existingMargin
+                : calculateMarginPercent(buy, existingSell);
+            const hetPrice = toNumber(product.hetPrice, existingSell);
 
             if (typeof existingMargin !== "number") {
               await collection.updateOne(
@@ -180,8 +180,8 @@ export default async function handler(
                 {
                   $set: {
                     minimumMarginPercent,
-                    sellPrice: migratedSellPrice,
-                    price: migratedSellPrice,
+                    sellPrice: existingSell,
+                    price: existingSell,
                     hetPrice,
                   },
                 }
@@ -200,10 +200,10 @@ export default async function handler(
               createdAt: toIsoDate(product.createdAt),
               unit: product.unit || "pcs",
               buyPrice: buy,
-              sellPrice: migratedSellPrice,
+              sellPrice: existingSell,
               hetPrice,
               minimumMarginPercent,
-              price: migratedSellPrice,
+              price: existingSell,
               category: categoryName,
               supplier: supplierName,
             };
@@ -237,15 +237,9 @@ export default async function handler(
 
         const collection = await getProductsCollection();
         const normalizedBuyPrice = toNumber(buyPrice ?? price, 0);
-        const minimumMarginPercent = Math.max(toNumber(req.body.minimumMarginPercent, 10), 0);
-        const minSellPrice = toRoundedTwo(normalizedBuyPrice * (1 + minimumMarginPercent / 100));
-        const requestedSellPrice = toNumber(sellPrice ?? price, minSellPrice);
-        const normalizedSellPrice = Math.max(requestedSellPrice, minSellPrice);
+        const normalizedSellPrice = toNumber(sellPrice ?? price, 0);
         const hetPrice = toNumber(req.body.hetPrice, normalizedSellPrice);
-
-        if (hetPrice > 0 && normalizedSellPrice > hetPrice) {
-          return res.status(400).json({ error: "Harga jual tidak boleh melebihi HET" });
-        }
+        const minimumMarginPercent = calculateMarginPercent(normalizedBuyPrice, normalizedSellPrice);
 
         const previousProduct: any = await collection.findOne(isPusat ? { _id: new ObjectId(id) } : { _id: new ObjectId(id), lokasi });
         if (!previousProduct) {
@@ -318,7 +312,10 @@ export default async function handler(
           buyPrice: toNumber(updatedProduct.buyPrice, toNumber(updatedProduct.price, 0)),
           sellPrice: toNumber(updatedProduct.sellPrice, toNumber(updatedProduct.price, 0)),
           hetPrice: toNumber(updatedProduct.hetPrice, toNumber(updatedProduct.sellPrice, toNumber(updatedProduct.price, 0))),
-          minimumMarginPercent: toNumber(updatedProduct.minimumMarginPercent, 10),
+          minimumMarginPercent: calculateMarginPercent(
+            toNumber(updatedProduct.buyPrice, toNumber(updatedProduct.price, 0)),
+            toNumber(updatedProduct.sellPrice, toNumber(updatedProduct.price, 0))
+          ),
           price: toNumber(updatedProduct.sellPrice, toNumber(updatedProduct.price, 0)),
           category: categoryName,
           supplier: supplierName,
