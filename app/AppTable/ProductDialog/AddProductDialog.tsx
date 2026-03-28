@@ -42,7 +42,6 @@ const ProductSchema = z.object({
   buyPrice: z.number().nonnegative("Harga beli tidak boleh negatif"),
   sellPrice: z.number().nonnegative("Harga jual tidak boleh negatif"),
   hetPrice: z.number().nonnegative("HET tidak boleh negatif"),
-  minimumMarginPercent: z.number().min(0, "Margin minimum tidak boleh negatif"),
 });
 
 interface ProductFormData {
@@ -53,7 +52,6 @@ interface ProductFormData {
   buyPrice: number;
   sellPrice: number;
   hetPrice: number;
-  minimumMarginPercent: number;
 }
 
 interface AddProductDialogProps {
@@ -75,11 +73,10 @@ export default function AddProductDialog({
       buyPrice: 0,
       sellPrice: 0,
       hetPrice: 0,
-      minimumMarginPercent: 10,
     },
   });
 
-  const { reset, watch, setValue } = methods;
+  const { reset } = methods;
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
@@ -110,7 +107,6 @@ export default function AddProductDialog({
         buyPrice: selectedProduct.buyPrice ?? selectedProduct.price,
         sellPrice: selectedProduct.sellPrice ?? selectedProduct.price,
         hetPrice: selectedProduct.hetPrice ?? selectedProduct.sellPrice ?? selectedProduct.price,
-        minimumMarginPercent: selectedProduct.minimumMarginPercent ?? 10,
       });
       setSelectedCategory(selectedProduct.categoryId || "");
       setSelectedSupplier(selectedProduct.supplierId || "");
@@ -124,30 +120,11 @@ export default function AddProductDialog({
         buyPrice: 0,
         sellPrice: 0,
         hetPrice: 0,
-        minimumMarginPercent: 10,
       });
       setSelectedCategory("");
       setSelectedSupplier("");
     }
   }, [selectedProduct, openProductDialog, reset]);
-
-  const buyPrice = watch("buyPrice");
-  const minimumMarginPercent = watch("minimumMarginPercent");
-
-  useEffect(() => {
-    if (selectedProduct) {
-      return;
-    }
-
-    const normalizedBuyPrice = Number(buyPrice) || 0;
-    const normalizedMargin = Math.max(Number(minimumMarginPercent) || 0, 10);
-    const recommendedSellPrice = normalizedBuyPrice + normalizedBuyPrice * (normalizedMargin / 100);
-
-    setValue("sellPrice", recommendedSellPrice, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  }, [buyPrice, minimumMarginPercent, selectedProduct, setValue]);
 
   const calculateStatus = (quantity: number): string => {
     if (quantity > 20) return "Tersedia";
@@ -169,7 +146,6 @@ export default function AddProductDialog({
           buyPrice: data.buyPrice,
           sellPrice: data.sellPrice,
           hetPrice: data.hetPrice,
-          minimumMarginPercent: data.minimumMarginPercent,
           unit: data.unit,
           quantity: data.quantity,
           sku: data.sku,
@@ -206,7 +182,6 @@ export default function AddProductDialog({
           buyPrice: data.buyPrice,
           sellPrice: data.sellPrice,
           hetPrice: data.hetPrice,
-          minimumMarginPercent: data.minimumMarginPercent,
           unit: data.unit,
           quantity: data.quantity,
           sku: data.sku,
@@ -291,11 +266,6 @@ export default function AddProductDialog({
                 fieldName="hetPrice"
                 label="HET (Harga Eceran Tertinggi)"
                 placeholder="HET..."
-              />
-              <Price
-                fieldName="minimumMarginPercent"
-                label="Margin Minimum (%)"
-                placeholder="Default 10"
               />
               <div>
                 <label htmlFor="category" className="block text-sm font-medium">
