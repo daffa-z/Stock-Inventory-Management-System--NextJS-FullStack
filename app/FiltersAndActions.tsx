@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useProductStore } from "@/app/useProductStore";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FiFileText, FiGrid } from "react-icons/fi";
 import { IoClose } from "react-icons/io5";
 import * as XLSX from 'xlsx';
@@ -53,6 +55,37 @@ export default function FiltersAndActions({
   userId,
 }: FiltersAndActionsProps) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const {
+    categories,
+    suppliers,
+    loadCategories,
+    loadSuppliers,
+    addProduct,
+    loadProducts,
+  } = useProductStore();
+
+  useEffect(() => {
+    loadCategories();
+    loadSuppliers();
+  }, [loadCategories, loadSuppliers]);
+
+  const categoryByName = useMemo(
+    () =>
+      new Map(
+        categories.map((category) => [category.name.trim().toLowerCase(), category.id])
+      ),
+    [categories]
+  );
+
+  const supplierByName = useMemo(
+    () =>
+      new Map(
+        suppliers.map((supplier) => [supplier.name.trim().toLowerCase(), supplier.id])
+      ),
+    [suppliers]
+  );
 
   // Filter products based on current filters
   const getFilteredProducts = () => {
@@ -183,6 +216,152 @@ export default function FiltersAndActions({
     }
   };
 
+  const downloadImportTemplate = () => {
+    const templateRows = [
+      {
+        "Nama Barang": "Contoh Produk",
+        SKU: "SKU-001",
+        Stok: 100,
+        Satuan: "pcs",
+        "Harga Beli": 5000,
+        "Harga Jual": 6500,
+        Status: "Draft",
+        Kategori: categories[0]?.name || "Isi dengan nama kategori",
+        Supplier: suppliers[0]?.name || "Isi dengan nama supplier",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateRows);
+    ws["!cols"] = [
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 20 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template Produk");
+    XLSX.writeFile(wb, "stockly-product-import-template.xlsx");
+  };
+
+  const handleImportButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportExcel = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    setIsImporting(true);
+    try {
+      const buffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      if (rows.length === 0) {
+        toast({
+          title: "Import Failed",
+          description: "File Excel kosong. Gunakan template agar format sesuai.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let successCount = 0;
+      const failedRows: string[] = [];
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        const rowNumber = index + 2;
+        const name = String(row["Nama Barang"] || "").trim();
+        const sku = String(row["SKU"] || "").trim();
+        const categoryName = String(row["Kategori"] || "").trim();
+        const supplierName = String(row["Supplier"] || "").trim();
+        const status = String(row["Status"] || "Draft").trim() || "Draft";
+
+        if (!name || !sku) {
+          failedRows.push(`Baris ${rowNumber}: Nama Barang/SKU wajib diisi`);
+          continue;
+        }
+
+        const categoryId = categoryByName.get(categoryName.toLowerCase());
+        const supplierId = supplierByName.get(supplierName.toLowerCase());
+
+        if (!categoryId || !supplierId) {
+          failedRows.push(
+            `Baris ${rowNumber}: Kategori/Supplier tidak ditemukan. Sesuaikan dengan data di aplikasi`
+          );
+          continue;
+        }
+
+        const quantity = Number(row["Stok"] ?? 0);
+        const buyPrice = Number(row["Harga Beli"] ?? 0);
+        const sellPrice = Number(row["Harga Jual"] ?? buyPrice);
+        const unit = String(row["Satuan"] || "pcs").trim() || "pcs";
+
+        const productPayload = {
+          id: "",
+          createdAt: new Date(),
+          userId,
+          name,
+          sku,
+          quantity: Number.isFinite(quantity) ? quantity : 0,
+          status,
+          categoryId,
+          supplierId,
+          unit,
+          buyPrice: Number.isFinite(buyPrice) ? buyPrice : 0,
+          sellPrice: Number.isFinite(sellPrice) ? sellPrice : 0,
+          price: Number.isFinite(sellPrice) ? sellPrice : 0,
+        } as Product;
+
+        const result = await addProduct(productPayload);
+        if (result.success) {
+          successCount += 1;
+        } else {
+          failedRows.push(`Baris ${rowNumber}: gagal menambahkan produk`);
+        }
+      }
+
+      await loadProducts();
+
+      if (successCount > 0) {
+        toast({
+          title: "Import selesai",
+          description: `${successCount} produk berhasil diimpor.`,
+        });
+      }
+
+      if (failedRows.length > 0) {
+        toast({
+          title: "Sebagian data gagal diimpor",
+          description: failedRows.slice(0, 2).join(" | "),
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: "Gagal membaca file Excel. Pastikan format sesuai template.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const filteredProducts = getFilteredProducts();
 
   return (
@@ -243,6 +422,30 @@ export default function FiltersAndActions({
             <FiGrid className="h-4 w-4" />
             Excel
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadImportTemplate}
+            className="flex items-center gap-2"
+          >
+            Template
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleImportButtonClick}
+            disabled={isImporting}
+            className="flex items-center gap-2"
+          >
+            {isImporting ? "Importing..." : "Import Excel"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleImportExcel}
+          />
         </div>
       </div>
 
