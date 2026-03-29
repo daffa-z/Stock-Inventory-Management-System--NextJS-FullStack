@@ -74,6 +74,16 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+const formatDateTime = (value: string) => new Date(value).toLocaleString("id-ID");
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export default function InvoiceDataPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -128,6 +138,112 @@ export default function InvoiceDataPage() {
     if (!data || !selectedInvoiceId) return null;
     return data.invoices.find((invoice) => invoice.id === selectedInvoiceId) || null;
   }, [data, selectedInvoiceId]);
+
+  const downloadInvoicePdf = (invoice: Invoice) => {
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=768");
+    if (!printWindow) {
+      toast({
+        title: "Popup diblokir",
+        description: "Izinkan popup browser untuk mengunduh PDF faktur.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const rows = invoice.items
+      .map(
+        (item) => `
+          <tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${escapeHtml(item.sku)}</td>
+            <td>${escapeHtml(item.supplier)}</td>
+            <td>${item.quantity}</td>
+            <td style="text-align:right;">${formatCurrency(item.price)}</td>
+            <td style="text-align:right;">${formatCurrency(item.lineTotal)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const discountLabel =
+      invoice.discountType === "percentage"
+        ? `${invoice.discountValue || 0}%`
+        : formatCurrency(invoice.discountValue || 0);
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(invoice.invoiceNumber)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
+            .header-image { width: 100%; height: auto; margin-bottom: 16px; }
+            h1 { text-align: center; margin-bottom: 8px; font-size: 22px; }
+            .muted { color: #6b7280; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+            th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+            th { background: #f9fafb; }
+            .totals { margin-top: 18px; font-size: 13px; }
+            .totals p { margin: 3px 0; text-align: right; }
+            .grand { font-weight: bold; font-size: 16px; }
+            .signature { margin-top: 56px; display: flex; justify-content: flex-end; }
+            .signature-box { min-width: 220px; text-align: center; }
+            .signature-name { margin-top: 64px; text-decoration: underline; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <img class="header-image" src="${window.location.origin}/pdf-header-template.svg" alt="Header Koperasi" />
+          <h1>Rincian Transaksi Penjualan</h1>
+          <p class="muted">
+            <strong>${escapeHtml(invoice.invoiceNumber)}</strong> • ${escapeHtml(invoice.customerName)} • ${formatDateTime(invoice.createdAt)}
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>SKU</th>
+                <th>Pemasok</th>
+                <th>Qty</th>
+                <th style="text-align:right;">Harga</th>
+                <th style="text-align:right;">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <div class="totals">
+            <p>Metode Pembayaran: ${escapeHtml(invoice.paymentMethod || "-")}</p>
+            <p>Diinput Oleh: ${escapeHtml(invoice.createdByName || "admin")}</p>
+            <p>Subtotal: ${formatCurrency(invoice.totalAmount)}</p>
+            <p>Kode Promo: ${escapeHtml(invoice.promoCode || "-")}</p>
+            <p>Discount (${discountLabel}): -${formatCurrency(invoice.discountAmount || 0)}</p>
+            <p>Tax (${invoice.taxRate}%): ${formatCurrency(invoice.taxAmount)}</p>
+            <p class="grand">Total Akhir: ${formatCurrency(invoice.grandTotal)}</p>
+            <p>Jumlah Dibayar: ${formatCurrency(invoice.amountPaid)}</p>
+            <p>Kembalian: ${formatCurrency(invoice.changeAmount)}</p>
+            <p>Keterangan: ${escapeHtml(invoice.keterangan || "-")}</p>
+          </div>
+
+          <div class="signature">
+            <div class="signature-box">
+              <p>${new Date(invoice.createdAt).toLocaleDateString("id-ID")}</p>
+              <p>Mengetahui,</p>
+              <p class="signature-name">${escapeHtml(invoice.signatureName || "Ari Wibowo")}</p>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const rollbackInvoice = async (invoice: Invoice) => {
     if (!isDev || invoice.status === "ROLLED_BACK") return;
@@ -350,11 +466,16 @@ export default function InvoiceDataPage() {
 
             {selectedInvoice && (
               <Card className="font-mono invoice-print-compact">
-                <CardHeader>
-                  <CardTitle>Detail Faktur - {selectedInvoice.invoiceNumber}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedInvoice.customerName} • {new Date(selectedInvoice.createdAt).toLocaleString()}
-                  </p>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Detail Faktur - {selectedInvoice.invoiceNumber}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedInvoice.customerName} • {new Date(selectedInvoice.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => downloadInvoicePdf(selectedInvoice)}>
+                    Download PDF
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">
