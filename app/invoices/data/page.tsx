@@ -140,16 +140,6 @@ export default function InvoiceDataPage() {
   }, [data, selectedInvoiceId]);
 
   const downloadInvoicePdf = (invoice: Invoice) => {
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=768");
-    if (!printWindow) {
-      toast({
-        title: "Popup diblokir",
-        description: "Izinkan popup browser untuk mengunduh PDF faktur.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const rows = invoice.items
       .map(
         (item) => `
@@ -170,7 +160,7 @@ export default function InvoiceDataPage() {
         ? `${invoice.discountValue || 0}%`
         : formatCurrency(invoice.discountValue || 0);
 
-    printWindow.document.write(`
+    const printMarkup = `
       <!DOCTYPE html>
       <html lang="id">
         <head>
@@ -233,17 +223,50 @@ export default function InvoiceDataPage() {
               <p class="signature-name">${escapeHtml(invoice.signatureName || "Ari Wibowo")}</p>
             </div>
           </div>
-
-          <script>
-            window.onload = function () {
-              window.print();
-            };
-          </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    const printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "0";
+    printFrame.style.height = "0";
+    printFrame.style.border = "0";
+
+    const cleanup = () => {
+      window.removeEventListener("afterprint", cleanup);
+      if (document.body.contains(printFrame)) {
+        document.body.removeChild(printFrame);
+      }
+    };
+
+    printFrame.onload = () => {
+      const frameWindow = printFrame.contentWindow;
+      if (!frameWindow) {
+        cleanup();
+        toast({
+          title: "Gagal mengunduh PDF",
+          description: "Silakan coba kembali.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      window.addEventListener("afterprint", cleanup);
+      frameWindow.focus();
+      frameWindow.print();
+      setTimeout(cleanup, 3000);
+    };
+
+    document.body.appendChild(printFrame);
+    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    frameDoc?.open();
+    frameDoc?.write(printMarkup);
+    frameDoc?.close();
   };
+
 
   const rollbackInvoice = async (invoice: Invoice) => {
     if (!isDev || invoice.status === "ROLLED_BACK") return;
