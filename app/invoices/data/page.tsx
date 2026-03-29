@@ -261,10 +261,7 @@ export default function InvoiceDataPage() {
     };
 
     document.body.appendChild(printFrame);
-    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-    frameDoc?.open();
-    frameDoc?.write(printMarkup);
-    frameDoc?.close();
+    printFrame.srcdoc = printMarkup;
   };
 
 
