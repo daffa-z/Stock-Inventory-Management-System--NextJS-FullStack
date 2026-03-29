@@ -74,6 +74,7 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+
 export default function InvoiceDataPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -129,6 +130,14 @@ export default function InvoiceDataPage() {
     return data.invoices.find((invoice) => invoice.id === selectedInvoiceId) || null;
   }, [data, selectedInvoiceId]);
 
+  const downloadInvoicePdf = (invoice: Invoice) => {
+    const originalTitle = document.title;
+    document.title = invoice.invoiceNumber;
+    window.print();
+    document.title = originalTitle;
+  };
+
+
   const rollbackInvoice = async (invoice: Invoice) => {
     if (!isDev || invoice.status === "ROLLED_BACK") return;
     const confirmation = window.confirm(
@@ -160,7 +169,7 @@ export default function InvoiceDataPage() {
   return (
     <AuthenticatedLayout>
       <div className="space-y-6 p-4 lg:p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div>
             <h2 className="text-2xl font-bold">Tinjauan Data Faktur</h2>
             <p className="text-sm text-muted-foreground">Pantau faktur penjualan sebelum membuat laporan akhir.</p>
@@ -181,7 +190,7 @@ export default function InvoiceDataPage() {
           </Card>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 print:hidden">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">Pendapatan</CardTitle>
@@ -221,7 +230,7 @@ export default function InvoiceDataPage() {
             </div>
 
 
-            <Card>
+            <Card className="print:hidden">
               <CardContent className="pt-6">
                 <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                   <Input
@@ -240,7 +249,7 @@ export default function InvoiceDataPage() {
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 lg:grid-cols-5">
+            <div className="grid gap-4 lg:grid-cols-5 print:hidden">
               <Card className="lg:col-span-3">
                 <CardHeader>
                   <CardTitle>Faktur Terbaru</CardTitle>
@@ -324,7 +333,7 @@ export default function InvoiceDataPage() {
             </div>
 
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between print:hidden">
               <p className="text-sm text-muted-foreground">
                 Halaman {data?.pagination.page || 1} dari {data?.pagination.totalPages || 1}
               </p>
@@ -350,11 +359,16 @@ export default function InvoiceDataPage() {
 
             {selectedInvoice && (
               <Card className="font-mono invoice-print-compact">
-                <CardHeader>
-                  <CardTitle>Detail Faktur - {selectedInvoice.invoiceNumber}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedInvoice.customerName} • {new Date(selectedInvoice.createdAt).toLocaleString()}
-                  </p>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Detail Faktur - {selectedInvoice.invoiceNumber}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedInvoice.customerName} • {new Date(selectedInvoice.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" className="print:hidden" onClick={() => downloadInvoicePdf(selectedInvoice)}>
+                    Download PDF
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">
