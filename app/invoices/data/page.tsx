@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/app/authContext";
 
 interface InvoiceItem {
   productId: string;
@@ -39,6 +40,8 @@ interface Invoice {
   createdByName?: string;
   keterangan: string;
   signatureName?: string;
+  status?: string;
+  rolledBackAt?: string;
   createdAt: string;
   items: InvoiceItem[];
 }
@@ -73,6 +76,7 @@ const formatCurrency = (value: number) =>
 
 export default function InvoiceDataPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [data, setData] = useState<InvoiceDataResponse | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isTableLoading, setIsTableLoading] = useState(false);
@@ -80,6 +84,7 @@ export default function InvoiceDataPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const hasLoadedOnce = useRef(false);
+  const isDev = (user?.role || "USER").toUpperCase() === "DEV";
 
   useEffect(() => {
     const loadInvoiceData = async () => {
@@ -123,6 +128,34 @@ export default function InvoiceDataPage() {
     if (!data || !selectedInvoiceId) return null;
     return data.invoices.find((invoice) => invoice.id === selectedInvoiceId) || null;
   }, [data, selectedInvoiceId]);
+
+  const rollbackInvoice = async (invoice: Invoice) => {
+    if (!isDev || invoice.status === "ROLLED_BACK") return;
+    const confirmation = window.confirm(
+      `Rollback invoice ${invoice.invoiceNumber}? This will return all stock for this invoice and mark it as rolled back.`
+    );
+    if (!confirmation) return;
+
+    try {
+      await axiosInstance.post(`/invoices/${invoice.id}/rollback`);
+      toast({
+        title: "Invoice berhasil di-rollback",
+        description: `Invoice ${invoice.invoiceNumber} sudah dikembalikan ke stok.`,
+      });
+
+      const response = await axiosInstance.get("/invoices", { params: { limit: 10, page, search } });
+      setData(response.data);
+      if (selectedInvoiceId === invoice.id) {
+        setSelectedInvoiceId(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rollback gagal",
+        description: error?.response?.data?.error || "Silakan coba kembali.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <AuthenticatedLayout>
@@ -224,7 +257,9 @@ export default function InvoiceDataPage() {
                           <th className="px-2 py-2">Pembayaran</th>
                           <th className="px-2 py-2">Diinput Oleh</th>
                           <th className="px-2 py-2 text-right">Total</th>
+                          <th className="px-2 py-2 text-center">Status</th>
                           <th className="px-2 py-2 text-right">Detail</th>
+                          {isDev && <th className="px-2 py-2 text-right">Edit</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -236,11 +271,31 @@ export default function InvoiceDataPage() {
                             <td className="px-2 py-2">{invoice.paymentMethod}</td>
                             <td className="px-2 py-2">{invoice.createdByName || "admin"}</td>
                             <td className="px-2 py-2 text-right">{formatCurrency(invoice.grandTotal)}</td>
+                            <td className="px-2 py-2 text-center">
+                              {invoice.status === "ROLLED_BACK" ? (
+                                <Badge variant="destructive">Rolled Back</Badge>
+                              ) : (
+                                <Badge variant="outline">Aktif</Badge>
+                              )}
+                            </td>
                             <td className="px-2 py-2 text-right">
                               <Button type="button" size="sm" variant="outline" onClick={() => setSelectedInvoiceId(invoice.id)}>
                                 Lihat Detail
                               </Button>
                             </td>
+                            {isDev && (
+                              <td className="px-2 py-2 text-right">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => rollbackInvoice(invoice)}
+                                  disabled={invoice.status === "ROLLED_BACK"}
+                                >
+                                  {invoice.status === "ROLLED_BACK" ? "Sudah Rollback" : "Rollback"}
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -352,6 +407,11 @@ export default function InvoiceDataPage() {
                     <p>Jumlah Dibayar: {formatCurrency(selectedInvoice.amountPaid)}</p>
                     <p>Kembalian: {formatCurrency(selectedInvoice.changeAmount)}</p>
                     <p>Keterangan: {selectedInvoice.keterangan || "-"}</p>
+                    {selectedInvoice.status === "ROLLED_BACK" && (
+                      <p className="text-red-600 font-semibold">
+                        Status: ROLLED_BACK {selectedInvoice.rolledBackAt ? `(${new Date(selectedInvoice.rolledBackAt).toLocaleString()})` : ""}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-10 flex justify-end">

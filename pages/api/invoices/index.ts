@@ -53,6 +53,9 @@ type NormalizedInvoice = {
   createdByEmail: string;
   keterangan: string;
   signatureName: string;
+  status: string;
+  rolledBackAt: string | null;
+  rolledBackByName: string;
   createdAt: string;
   items: NormalizedInvoiceItem[];
 };
@@ -86,6 +89,9 @@ const normalizeInvoice = (invoice: any): NormalizedInvoice => ({
   createdByEmail: invoice.createdByEmail || "",
   keterangan: invoice.keterangan,
   signatureName: typeof invoice.signatureName === "string" ? invoice.signatureName : "Ari Wibowo",
+  status: typeof invoice.status === "string" ? invoice.status : "ACTIVE",
+  rolledBackAt: invoice.rolledBackAt ? new Date(invoice.rolledBackAt).toISOString() : null,
+  rolledBackByName: typeof invoice.rolledBackByName === "string" ? invoice.rolledBackByName : "",
   createdAt: new Date(invoice.createdAt).toISOString(),
   items: Array.isArray(invoice.items)
     ? invoice.items.map((item: any): NormalizedInvoiceItem => ({
