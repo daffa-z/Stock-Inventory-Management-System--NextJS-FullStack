@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getMongoDb, isReplicaSetTransactionError } from "@/utils/mongo";
+import { getSessionServer } from "@/utils/auth";
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,12 @@ export default async function handler(
   }
 
   try {
+    const sessionUser = await getSessionServer(req, res);
+    const role = (sessionUser?.role || "").toUpperCase();
+    if (role !== "DEV") {
+      return res.status(403).json({ error: "Forbidden: only DEV can register users" });
+    }
+
     const { name, email, password, role, lokasi } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });

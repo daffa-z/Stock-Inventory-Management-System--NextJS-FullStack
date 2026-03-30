@@ -14,21 +14,26 @@ interface PageProps {
 
 const PageContent: React.FC = () => {
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isAuthLoading } = useAuth();
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!isLoggedIn) {
       router.push("/login");
     }
-  }, [isLoggedIn, router]);
+  }, [isAuthLoading, isLoggedIn, router]);
 
   // Memoize the component to prevent unnecessary re-renders
   const content = useMemo(() => {
+    if (isAuthLoading) {
+      return <Loading />;
+    }
+
     if (isLoggedIn) {
       return <Home />;
     }
     return <Login />;
-  }, [isLoggedIn]);
+  }, [isAuthLoading, isLoggedIn]);
 
   return content;
 };

@@ -76,9 +76,7 @@ export default function Login() {
         <div className="text-center">
           <p>
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-blue-500">
-              Register
-            </Link>
+            Hubungi admin/DEV untuk dibuatkan akun.
           </p>
         </div>
       </form>

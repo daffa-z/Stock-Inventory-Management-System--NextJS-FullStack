@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  const publicRoutes = ["/login", "/register"];
+  const publicRoutes = ["/login"];
   const isPublicRoute = publicRoutes.some((route) => path === route || path.startsWith(`${route}/`));
 
   const sessionToken = request.cookies.get("session_id")?.value;

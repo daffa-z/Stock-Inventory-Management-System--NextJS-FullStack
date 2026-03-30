@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
 import { useEffect, useState } from "react";
 import { useAuth } from "../authContext";
+import Link from "next/link";
 
 interface UserRecord {
   id: string;
@@ -147,8 +148,13 @@ export default function UsersPage() {
     <AuthenticatedLayout>
       <div className="space-y-6 p-4 lg:p-0">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Tabel Data Pengguna</CardTitle>
+            {isDev && (
+              <Button asChild>
+                <Link href="/users/register">Buat Pengguna Baru</Link>
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
             <Input
