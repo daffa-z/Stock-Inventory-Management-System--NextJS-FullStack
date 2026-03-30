@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
 import { useEffect, useState } from "react";
 import { useAuth } from "../authContext";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface UserRecord {
   id: string;
@@ -46,6 +46,7 @@ interface EditForm {
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const { user } = useAuth();
   const isDev = (user?.role || "USER").toUpperCase() === "DEV";
   const [data, setData] = useState<UsersResponse | null>(null);
@@ -151,8 +152,8 @@ export default function UsersPage() {
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Tabel Data Pengguna</CardTitle>
             {isDev && (
-              <Button asChild>
-                <Link href="/users/register">Buat Pengguna Baru</Link>
+              <Button type="button" onClick={() => router.push("/users/register")}>
+                Buat Pengguna Baru
               </Button>
             )}
           </CardHeader>
