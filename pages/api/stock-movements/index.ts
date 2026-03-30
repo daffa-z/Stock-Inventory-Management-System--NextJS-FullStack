@@ -17,6 +17,22 @@ const getStatusByQuantity = (quantity: number) => {
   return "Stock Out";
 };
 
+const resolveActorName = (actor: any) => {
+  const username = typeof actor?.createdByUsername === "string" ? actor.createdByUsername.trim() : "";
+  if (username) return username;
+
+  const name = typeof actor?.createdByName === "string" ? actor.createdByName.trim() : "";
+  if (name) return name;
+
+  const email = typeof actor?.createdByEmail === "string" ? actor.createdByEmail.trim() : "";
+  if (email.includes("@")) return email.split("@")[0];
+
+  const userId = String(actor?.createdByUserId || actor?.userId || "").trim();
+  if (userId) return `user-${userId.slice(-6)}`;
+
+  return "unknown-user";
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSessionServer(req, res);
   if (!session) {
@@ -80,8 +96,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           unit: record.unit || "pcs",
           notes: record.notes || "",
           createdByUserId: record.createdByUserId || record.userId || "",
-          createdByName: record.createdByName || "admin",
+          createdByName: resolveActorName(record),
           createdByEmail: record.createdByEmail || "",
+          createdByUsername: typeof record.createdByUsername === "string" ? record.createdByUsername : "",
         }));
 
         return res.status(200).json({
@@ -177,7 +194,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         userId,
         lokasi,
         createdByUserId: session.id,
-        createdByName: session.name || "admin",
+        createdByName: resolveActorName({
+          createdByUsername: (session as any).username,
+          createdByName: session.name,
+          createdByEmail: session.email,
+          createdByUserId: session.id,
+        }),
+        createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
         createdByEmail: session.email || "",
         productId,
         productName: product.name || "Unknown",
