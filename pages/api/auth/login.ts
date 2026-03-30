@@ -128,12 +128,15 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
       req.headers["x-forwarded-proto"] === "https" ||
       process.env.NODE_ENV !== "development";
 
+    const cookieSameSite = isSecure ? "none" : "lax";
+
     const cookies = new Cookies(req, res, { secure: isSecure });
     cookies.set("session_id", token, {
       httpOnly: true,
-      secure: isSecure, // Dynamically set secure flag
-      sameSite: "none", // Allow cross-origin cookies
-      maxAge: 60 * 60 * 1000, // 1 hour
+      secure: isSecure,
+      sameSite: cookieSameSite,
+      path: "/",
+      maxAge: 60 * 60 * 1000,
     });
 
     console.log("Login successful, session ID set:", token);
