@@ -23,19 +23,13 @@ const getStatusByQuantity = (quantity: number) => {
 };
 
 const resolveActorName = (actor: any) => {
-  const username = typeof actor?.createdByUsername === "string" ? actor.createdByUsername.trim() : "";
-  if (username) return username;
-
   const name = typeof actor?.createdByName === "string" ? actor.createdByName.trim() : "";
   if (name) return name;
 
-  const email = typeof actor?.createdByEmail === "string" ? actor.createdByEmail.trim() : "";
-  if (email.includes("@")) return email.split("@")[0];
+  const directName = typeof actor?.name === "string" ? actor.name.trim() : "";
+  if (directName) return directName;
 
-  const userId = String(actor?.createdByUserId || actor?.userId || "").trim();
-  if (userId) return `user-${userId.slice(-6)}`;
-
-  return "unknown-user";
+  return "Unknown User";
 };
 
 type NormalizedInvoiceItem = {
@@ -404,12 +398,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         userId,
         lokasi,
         createdByUserId: session.id,
-        createdByName: resolveActorName({
-          createdByUsername: (session as any).username,
-          createdByName: session.name,
-          createdByEmail: session.email,
-          createdByUserId: session.id,
-        }),
+        createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
         createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
         createdByEmail: session.email || "",
         customerName: customerName?.trim() || "Walk-in Customer",
@@ -438,12 +427,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           userId,
           lokasi,
           createdByUserId: session.id,
-          createdByName: resolveActorName({
-            createdByUsername: (session as any).username,
-            createdByName: session.name,
-            createdByEmail: session.email,
-            createdByUserId: session.id,
-          }),
+          createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
           createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
           createdByEmail: session.email || "",
           productId: item.productId,
