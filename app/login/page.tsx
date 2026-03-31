@@ -34,10 +34,8 @@ export default function Login() {
       setEmail("");
       setPassword("");
 
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push("/");
-      }, 1500);
+      // Redirect immediately so background-tab timer throttling does not block navigation.
+      router.replace("/");
     } catch (error) {
       // Show error toast
       toast({
