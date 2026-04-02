@@ -80,7 +80,30 @@ export const openAndPrintTypewriterReport = ({
   `);
 
   printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+
+  const triggerPrint = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // Wait for the header image to load so PDF output always includes it.
+  const headerImage = printWindow.document.querySelector("img");
+  if (headerImage) {
+    const safePrint = () => {
+      printWindow.setTimeout(triggerPrint, 150);
+    };
+
+    if ((headerImage as HTMLImageElement).complete) {
+      safePrint();
+    } else {
+      headerImage.addEventListener("load", safePrint, { once: true });
+      headerImage.addEventListener("error", safePrint, { once: true });
+      // Fallback in case load/error events are throttled or blocked.
+      printWindow.setTimeout(safePrint, 2000);
+    }
+  } else {
+    triggerPrint();
+  }
+
   return true;
 };
