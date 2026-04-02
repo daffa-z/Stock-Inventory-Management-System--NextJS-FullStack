@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
+import { openAndPrintTypewriterReport } from "@/utils/pdfReportTemplate";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -131,10 +132,38 @@ export default function InvoiceDataPage() {
   }, [data, selectedInvoiceId]);
 
   const downloadInvoicePdf = (invoice: Invoice) => {
-    const originalTitle = document.title;
-    document.title = invoice.invoiceNumber;
-    window.print();
-    document.title = originalTitle;
+    const didOpen = openAndPrintTypewriterReport({
+      documentTitle: `Faktur-${invoice.invoiceNumber}`,
+      reportHeading: `Faktur ${invoice.invoiceNumber}`,
+      reportSubheading: `Pelanggan: ${invoice.customerName}`,
+      generatedAt: new Date().toLocaleString("id-ID"),
+      tableHeaders: ["Produk", "SKU", "Pemasok", "Qty", "Harga", "Total"],
+      tableRows: invoice.items.map((item) => [
+        item.name,
+        item.sku,
+        item.supplier,
+        String(item.quantity),
+        formatCurrency(item.price),
+        formatCurrency(item.lineTotal),
+      ]),
+      summaryLines: [
+        `Diinput oleh: ${invoice.createdByName || "Unknown User"}`,
+        `Metode pembayaran: ${invoice.paymentMethod}`,
+        `Subtotal: ${formatCurrency(invoice.totalAmount)}`,
+        `Diskon: ${formatCurrency(invoice.discountAmount || 0)}`,
+        `Pajak: ${formatCurrency(invoice.taxAmount)}`,
+        `Total akhir: ${formatCurrency(invoice.grandTotal)}`,
+      ],
+      signatureName: invoice.signatureName || "Koperasi",
+    });
+
+    if (!didOpen) {
+      toast({
+        title: "Gagal membuka PDF",
+        description: "Izinkan pop-up browser lalu coba lagi.",
+        variant: "destructive",
+      });
+    }
   };
 
 
