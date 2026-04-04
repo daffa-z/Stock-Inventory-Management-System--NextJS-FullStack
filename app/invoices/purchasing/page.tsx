@@ -189,7 +189,20 @@ export default function InvoicePurchasingPage() {
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Penjualan Bulanan");
-    XLSX.writeFile(workbook, `laporan-penjualan-bulanan-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    const workbookArray = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([workbookArray], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laporan-penjualan-bulanan-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const downloadMonthlySalesPdf = () => {

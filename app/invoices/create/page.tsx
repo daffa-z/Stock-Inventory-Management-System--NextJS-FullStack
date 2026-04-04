@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
+import { openAndPrintTypewriterReport } from "@/utils/pdfReportTemplate";
 import { ArrowRight, PlusCircle, Printer, Trash2 } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,6 +39,7 @@ interface CreatedInvoice {
   bankName: string;
   keterangan: string;
   signatureName: string;
+  createdByName?: string;
   createdAt: string;
   items: Array<{
     productId: string;
@@ -160,6 +162,42 @@ export default function InvoicesPage() {
     return true;
   };
 
+
+  const openInvoicePdf = (invoice: CreatedInvoice) => {
+    const didOpen = openAndPrintTypewriterReport({
+      documentTitle: `Faktur-${invoice.invoiceNumber}`,
+      reportHeading: `Faktur ${invoice.invoiceNumber}`,
+      reportSubheading: `Pelanggan: ${invoice.customerName}`,
+      generatedAt: new Date().toLocaleString("id-ID"),
+      tableHeaders: ["Produk", "SKU", "Pemasok", "Qty", "Harga", "Total"],
+      tableRows: invoice.items.map((item) => [
+        item.name,
+        item.sku,
+        item.supplier,
+        String(item.quantity),
+        formatCurrency(item.price),
+        formatCurrency(item.lineTotal),
+      ]),
+      summaryLines: [
+        `Diinput oleh: ${invoice.createdByName || "Unknown User"}`,
+        `Metode pembayaran: ${invoice.paymentMethod}`,
+        `Subtotal: ${formatCurrency(invoice.totalAmount)}`,
+        `Diskon: ${formatCurrency(invoice.discountAmount || 0)}`,
+        `Pajak: ${formatCurrency(invoice.taxAmount)}`,
+        `Total akhir: ${formatCurrency(invoice.grandTotal)}`,
+      ],
+      signatureName: invoice.signatureName || "Ari Wibowo",
+    });
+
+    if (!didOpen) {
+      toast({
+        title: "Gagal membuka PDF",
+        description: "Izinkan pop-up browser lalu coba lagi.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const createInvoice = async () => {
     const filteredItems = getFilteredItems();
 
@@ -199,6 +237,8 @@ export default function InvoicesPage() {
         title: "Invoice created",
         description: `Invoice ${response.data.invoiceNumber} was created and stock has been updated.`,
       });
+
+      openInvoicePdf(response.data);
     } catch (error: any) {
       toast({
         title: "Failed to create invoice",
@@ -217,15 +257,8 @@ export default function InvoicesPage() {
   };
 
   const handlePrintInvoice = () => {
-    if (!createdInvoice) {
-      window.print();
-      return;
-    }
-
-    const originalTitle = document.title;
-    document.title = createdInvoice.invoiceNumber;
-    window.print();
-    document.title = originalTitle;
+    if (!createdInvoice) return;
+    openInvoicePdf(createdInvoice);
   };
 
   const finishInvoice = () => {

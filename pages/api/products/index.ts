@@ -33,6 +33,16 @@ const toIsoDate = (value: unknown) => {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
 
+const resolveActorName = (actor: any) => {
+  const name = typeof actor?.createdByName === "string" ? actor.createdByName.trim() : "";
+  if (name) return name;
+
+  const directName = typeof actor?.name === "string" ? actor.name.trim() : "";
+  if (directName) return directName;
+
+  return "Unknown User";
+};
+
 const findCategoryNameById = async (categoryId?: string) => {
   if (!categoryId) return "Tidak Diketahui";
   try {
@@ -128,6 +138,10 @@ export default async function handler(
           await movementCollection.insertOne({
             userId,
             lokasi,
+            createdByUserId: session.id,
+            createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
+            createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
+            createdByEmail: session.email || "",
             productId: inserted.insertedId.toString(),
             productName: productDoc.name,
             category: categoryName,
@@ -283,6 +297,10 @@ export default async function handler(
           await movementCollection.insertOne({
             userId,
             lokasi,
+            createdByUserId: session.id,
+            createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
+            createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
+            createdByEmail: session.email || "",
             productId: updatedProduct._id.toString(),
             productName: updatedProduct.name,
             category: categoryName,

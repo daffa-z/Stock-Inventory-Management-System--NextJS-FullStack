@@ -22,6 +22,16 @@ const getStatusByQuantity = (quantity: number) => {
   return "Stock Out";
 };
 
+const resolveActorName = (actor: any) => {
+  const name = typeof actor?.createdByName === "string" ? actor.createdByName.trim() : "";
+  if (name) return name;
+
+  const directName = typeof actor?.name === "string" ? actor.name.trim() : "";
+  if (directName) return directName;
+
+  return "Unknown User";
+};
+
 type NormalizedInvoiceItem = {
   productId: string;
   name: string;
@@ -85,7 +95,7 @@ const normalizeInvoice = (invoice: any): NormalizedInvoice => ({
   paymentMethod: invoice.paymentMethod,
   bankName: typeof invoice.bankName === "string" ? invoice.bankName : "",
   createdByUserId: invoice.createdByUserId || invoice.userId || "",
-  createdByName: invoice.createdByName || "admin",
+  createdByName: resolveActorName(invoice),
   createdByEmail: invoice.createdByEmail || "",
   keterangan: invoice.keterangan,
   signatureName: typeof invoice.signatureName === "string" ? invoice.signatureName : "Ari Wibowo",
@@ -388,7 +398,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         userId,
         lokasi,
         createdByUserId: session.id,
-        createdByName: session.name || "admin",
+        createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
+        createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
         createdByEmail: session.email || "",
         customerName: customerName?.trim() || "Walk-in Customer",
         items: preparedItems.map(({ remainingQuantity, stockBefore, category, unit, ...invoiceItem }) => invoiceItem),
@@ -416,7 +427,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           userId,
           lokasi,
           createdByUserId: session.id,
-          createdByName: session.name || "admin",
+          createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
+          createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
           createdByEmail: session.email || "",
           productId: item.productId,
           productName: item.name,

@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 //import axios from "axios";
-import Cookies from "js-cookie";
 import axiosInstance from "@/utils/axiosInstance";
 import { getSessionClient } from "@/utils/authClient";
 
@@ -16,6 +15,7 @@ interface User {
 
 interface AuthContextType {
   isLoggedIn: boolean;
+  isAuthLoading: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -27,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -57,17 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const checkSession = async () => {
-      const sessionId = Cookies.get("session_id");
-      // Debug log - only log in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Session ID from cookies:", sessionId);
-      }
-      if (sessionId) {
+      try {
         const session = await getSessionClient();
-        // Debug log - only log in development
         if (process.env.NODE_ENV === 'development') {
           console.log("Session from getSessionClient:", session);
         }
+
         if (session) {
           setIsLoggedIn(true);
           setUser({
@@ -77,20 +73,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             role: session.role || "USER",
             lokasi: (session as any).lokasi || "PUSAT",
           });
-          // Debug log - only log in development
-          if (process.env.NODE_ENV === 'development') {
-            console.log("User from session:", session);
-          }
-          // Set necessary attributes in local storage
+
           localStorage.setItem("isAuth", "true");
           localStorage.setItem("isLoggedIn", "true");
-          localStorage.setItem("token", sessionId);
+          localStorage.setItem("token", "server-cookie-session");
           localStorage.setItem("getSession", JSON.stringify(session));
         } else {
           clearAuthData();
         }
-      } else {
-        clearAuthData();
+      } finally {
+        setIsAuthLoading(false);
       }
     };
 
@@ -113,25 +105,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role: result.userRole || "USER",
         lokasi: result.userLokasi || "PUSAT",
       });
-      Cookies.set("session_id", result.sessionId, {
-        path: "/",
-        sameSite: "lax",
-      });
-      // Debug log - only log in development
+      // Server sets the session cookie (httpOnly). Keep client storage for UI state only.
       if (process.env.NODE_ENV === 'development') {
-        console.log("Login successful, session ID set:", result.sessionId);
-
-        // Debug log to verify cookie
-        console.log(
-          "Session ID from Cookies after login:",
-          Cookies.get("session_id")
-        );
+        console.log("Login successful for:", result.userEmail);
       }
 
       // Set necessary attributes in local storage
       localStorage.setItem("isAuth", "true");
       localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("token", result.sessionId);
+      localStorage.setItem("token", "server-cookie-session");
       localStorage.setItem("getSession", JSON.stringify(result));
     } catch (error) {
       console.error("Error logging in:", error);
@@ -156,7 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const clearAuthData = () => {
     setIsLoggedIn(false);
     setUser(null);
-    Cookies.remove("session_id", { path: "/" });
     // Clear attributes from local storage
     localStorage.setItem("isAuth", "false");
     localStorage.setItem("isLoggedIn", "false");
@@ -165,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isAuthLoading, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

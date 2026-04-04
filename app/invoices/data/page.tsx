@@ -4,12 +4,15 @@ import AuthenticatedLayout from "@/app/components/AuthenticatedLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import axiosInstance from "@/utils/axiosInstance";
+import { openAndPrintTypewriterReport } from "@/utils/pdfReportTemplate";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/app/authContext";
 
 interface InvoiceItem {
@@ -82,6 +85,8 @@ export default function InvoiceDataPage() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isTableLoading, setIsTableLoading] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const hasLoadedOnce = useRef(false);
@@ -130,11 +135,82 @@ export default function InvoiceDataPage() {
     return data.invoices.find((invoice) => invoice.id === selectedInvoiceId) || null;
   }, [data, selectedInvoiceId]);
 
+
+  const openEditInvoice = (invoice: Invoice) => {
+    if (!isDev) return;
+    setEditingInvoice(JSON.parse(JSON.stringify(invoice)));
+  };
+
+  const updateEditingItem = (index: number, field: "price" | "quantity", value: string) => {
+    setEditingInvoice((prev) => {
+      if (!prev) return prev;
+      const nextItems = [...prev.items];
+      const currentItem = nextItems[index];
+      const parsed = Number(value);
+      const safeValue = Number.isFinite(parsed) ? parsed : 0;
+      nextItems[index] = {
+        ...currentItem,
+        [field]: safeValue,
+        lineTotal: (field === "price" ? safeValue : currentItem.price) * (field === "quantity" ? safeValue : currentItem.quantity),
+      };
+      return { ...prev, items: nextItems };
+    });
+  };
+
+  const saveInvoiceEdit = async () => {
+    if (!editingInvoice || !isDev) return;
+    try {
+      setIsSavingEdit(true);
+      await axiosInstance.put(`/invoices/${editingInvoice.id}`, editingInvoice);
+      toast({ title: "Invoice diperbarui", description: "Perubahan invoice berhasil disimpan." });
+      const response = await axiosInstance.get("/invoices", { params: { limit: 10, page, search } });
+      setData(response.data);
+      setSelectedInvoiceId(editingInvoice.id);
+      setEditingInvoice(null);
+    } catch (error: any) {
+      toast({
+        title: "Gagal memperbarui invoice",
+        description: error?.response?.data?.error || "Silakan coba kembali.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const downloadInvoicePdf = (invoice: Invoice) => {
-    const originalTitle = document.title;
-    document.title = invoice.invoiceNumber;
-    window.print();
-    document.title = originalTitle;
+    const didOpen = openAndPrintTypewriterReport({
+      documentTitle: `Faktur-${invoice.invoiceNumber}`,
+      reportHeading: `Faktur ${invoice.invoiceNumber}`,
+      reportSubheading: `Pelanggan: ${invoice.customerName}`,
+      generatedAt: new Date().toLocaleString("id-ID"),
+      tableHeaders: ["Produk", "SKU", "Pemasok", "Qty", "Harga", "Total"],
+      tableRows: invoice.items.map((item) => [
+        item.name,
+        item.sku,
+        item.supplier,
+        String(item.quantity),
+        formatCurrency(item.price),
+        formatCurrency(item.lineTotal),
+      ]),
+      summaryLines: [
+        `Diinput oleh: ${invoice.createdByName || "Unknown User"}`,
+        `Metode pembayaran: ${invoice.paymentMethod}`,
+        `Subtotal: ${formatCurrency(invoice.totalAmount)}`,
+        `Diskon: ${formatCurrency(invoice.discountAmount || 0)}`,
+        `Pajak: ${formatCurrency(invoice.taxAmount)}`,
+        `Total akhir: ${formatCurrency(invoice.grandTotal)}`,
+      ],
+      signatureName: invoice.signatureName || "Koperasi",
+    });
+
+    if (!didOpen) {
+      toast({
+        title: "Gagal membuka PDF",
+        description: "Izinkan pop-up browser lalu coba lagi.",
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -268,7 +344,7 @@ export default function InvoiceDataPage() {
                           <th className="px-2 py-2 text-right">Total</th>
                           <th className="px-2 py-2 text-center">Status</th>
                           <th className="px-2 py-2 text-right">Detail</th>
-                          {isDev && <th className="px-2 py-2 text-right">Edit</th>}
+                          {isDev && <th className="px-2 py-2 text-right">Aksi DEV</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -294,15 +370,20 @@ export default function InvoiceDataPage() {
                             </td>
                             {isDev && (
                               <td className="px-2 py-2 text-right">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => rollbackInvoice(invoice)}
-                                  disabled={invoice.status === "ROLLED_BACK"}
-                                >
-                                  {invoice.status === "ROLLED_BACK" ? "Sudah Rollback" : "Rollback"}
-                                </Button>
+                                <div className="flex gap-2 justify-end">
+                                  <Button type="button" size="sm" variant="outline" onClick={() => openEditInvoice(invoice)}>
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => rollbackInvoice(invoice)}
+                                    disabled={invoice.status === "ROLLED_BACK"}
+                                  >
+                                    {invoice.status === "ROLLED_BACK" ? "Sudah Rollback" : "Rollback"}
+                                  </Button>
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -440,6 +521,51 @@ export default function InvoiceDataPage() {
             )}
           </>
         )}
+
+
+        <Dialog open={Boolean(editingInvoice)} onOpenChange={(open) => !open && setEditingInvoice(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice (DEV Only)</DialogTitle>
+            </DialogHeader>
+            {editingInvoice && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Customer</Label>
+                    <Input value={editingInvoice.customerName} onChange={(e) => setEditingInvoice((prev) => prev ? { ...prev, customerName: e.target.value } : prev)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Input value={editingInvoice.paymentMethod} onChange={(e) => setEditingInvoice((prev) => prev ? { ...prev, paymentMethod: e.target.value } : prev)} />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Keterangan</Label>
+                    <Input value={editingInvoice.keterangan || ""} onChange={(e) => setEditingInvoice((prev) => prev ? { ...prev, keterangan: e.target.value } : prev)} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Edit Harga Produk di Invoice (tidak mengubah harga produk database)</Label>
+                  <div className="space-y-2">
+                    {editingInvoice.items.map((item, index) => (
+                      <div key={`${item.productId}-${item.sku}-${index}`} className="grid grid-cols-12 gap-2 items-center border rounded p-2">
+                        <p className="col-span-12 md:col-span-4 text-sm font-medium">{item.name}</p>
+                        <Input className="col-span-6 md:col-span-2" type="number" value={item.quantity} onChange={(e) => updateEditingItem(index, "quantity", e.target.value)} />
+                        <Input className="col-span-6 md:col-span-3" type="number" value={item.price} onChange={(e) => updateEditingItem(index, "price", e.target.value)} />
+                        <p className="col-span-12 md:col-span-3 text-sm text-right">{formatCurrency(item.lineTotal)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingInvoice(null)}>Batal</Button>
+              <Button type="button" onClick={saveInvoiceEdit} disabled={isSavingEdit}>{isSavingEdit ? "Menyimpan..." : "Simpan Perubahan"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthenticatedLayout>
   );

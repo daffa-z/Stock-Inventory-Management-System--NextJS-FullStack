@@ -31,56 +31,100 @@ export const openAndPrintTypewriterReport = ({
     )
     .join("");
 
-  const rowsHtml = tableRows
-    .map((row) => {
-      const rowCells = row
-        .map(
-          (value, index) =>
-            `<td style="padding:8px;border:1px solid #111;text-align:${index === 0 ? "left" : "right"};">${value}</td>`
-        )
-        .join("");
-      return `<tr>${rowCells}</tr>`;
+  const renderRows = (rows: string[][]) =>
+    rows
+      .map((row) => {
+        const rowCells = row
+          .map(
+            (value, index) =>
+              `<td style="padding:8px;border:1px solid #111;text-align:${index === 0 ? "left" : "right"};">${value}</td>`
+          )
+          .join("");
+        return `<tr>${rowCells}</tr>`;
+      })
+      .join("");
+
+  const shouldSplitIntoTwoPages = tableRows.length > 12;
+  const splitIndex = Math.max(1, Math.ceil(tableRows.length / 2));
+  const tablePages = shouldSplitIntoTwoPages
+    ? [tableRows.slice(0, splitIndex), tableRows.slice(splitIndex)]
+    : [tableRows];
+
+  const isZeroCurrencyLine = (line: string) => /Rp[\s ]*0([.,]0+)?(\D|$)/.test(line);
+  const filteredSummaryLines = summaryLines.filter((line) => !isZeroCurrencyLine(line));
+
+  const summaryHtml = filteredSummaryLines.length
+    ? `<div style="margin-top: 16px; text-align: right; line-height: 1.6;">${filteredSummaryLines.map((line) => `<p style="margin:0;">${line}</p>`).join("")}</div>`
+    : "";
+
+  const pagesHtml = tablePages
+    .map((rows, index) => {
+      const isLastPage = index === tablePages.length - 1;
+      return `
+        <section style="${isLastPage ? "" : "page-break-after: always;"}">
+          <div style="margin-bottom: 12px;">
+            <img src="${headerImageUrl}" alt="Header Koperasi" style="width:100%; height:auto; display:block;" />
+          </div>
+          <h2 style="margin: 0 0 6px; text-align: center;">${reportHeading}</h2>
+          <h3 style="margin: 0 0 18px; text-align: center;">${reportSubheading}</h3>
+          <p style="margin: 0 0 12px;">Tanggal cetak: ${generatedAt}</p>
+          <table style="border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 8px;">
+            <thead>
+              <tr>${headerHtml}</tr>
+            </thead>
+            <tbody>
+              ${renderRows(rows)}
+            </tbody>
+          </table>
+          ${isLastPage ? summaryHtml : ""}
+          ${isLastPage ? `<div style="margin-top: 12px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid; page-break-before: avoid;">
+            <div style="text-align: center; min-width: 220px;">
+              <p style="margin:0;">${new Date().toLocaleDateString("id-ID")}</p>
+              <p style="margin:0 0 32px;">Mengetahui,</p>
+              <p style="margin:0; font-weight: 700; text-decoration: underline;">${signatureName}</p>
+            </div>
+          </div>` : ""}
+        </section>
+      `;
     })
     .join("");
-
-  const summaryHtml = summaryLines.length
-    ? `<div style="margin-top: 16px; text-align: right; line-height: 1.6;">${summaryLines.map((line) => `<p style="margin:0;">${line}</p>`).join("")}</div>`
-    : "";
 
   printWindow.document.write(`
     <html>
       <head>
         <title>${documentTitle}</title>
       </head>
-      <body style="font-family: 'Courier New', Courier, monospace; padding: 24px; color: #111;">
-        <div style="margin-bottom: 12px;">
-          <img src="${headerImageUrl}" alt="Header Koperasi" style="width:100%; height:auto; display:block;" />
-        </div>
-        <h2 style="margin: 0 0 6px; text-align: center;">${reportHeading}</h2>
-        <h3 style="margin: 0 0 18px; text-align: center;">${reportSubheading}</h3>
-        <p style="margin: 0 0 12px;">Tanggal cetak: ${generatedAt}</p>
-        <table style="border-collapse: collapse; width: 100%; font-size: 14px;">
-          <thead>
-            <tr>${headerHtml}</tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-        ${summaryHtml}
-        <div style="margin-top: 48px; display: flex; justify-content: flex-end;">
-          <div style="text-align: center; min-width: 220px;">
-            <p style="margin:0;">${new Date().toLocaleDateString("id-ID")}</p>
-            <p style="margin:0 0 64px;">Mengetahui,</p>
-            <p style="margin:0; font-weight: 700; text-decoration: underline;">${signatureName}</p>
-          </div>
-        </div>
+      <body style="font-family: 'Courier New', Courier, monospace; padding: 16px; color: #111;">
+        ${pagesHtml}
       </body>
     </html>
   `);
 
   printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+
+  const triggerPrint = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // Wait for the header image to load so PDF output always includes it.
+  const headerImage = printWindow.document.querySelector("img");
+  if (headerImage) {
+    const safePrint = () => {
+      printWindow.setTimeout(triggerPrint, 150);
+    };
+
+    if ((headerImage as HTMLImageElement).complete) {
+      safePrint();
+    } else {
+      headerImage.addEventListener("load", safePrint, { once: true });
+      headerImage.addEventListener("error", safePrint, { once: true });
+      // Fallback in case load/error events are throttled or blocked.
+      printWindow.setTimeout(safePrint, 2000);
+    }
+  } else {
+    triggerPrint();
+  }
+
   return true;
 };

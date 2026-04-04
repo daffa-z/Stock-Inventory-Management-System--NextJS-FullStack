@@ -34,10 +34,8 @@ export default function Login() {
       setEmail("");
       setPassword("");
 
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push("/");
-      }, 1500);
+      // Redirect immediately so background-tab timer throttling does not block navigation.
+      router.replace("/");
     } catch (error) {
       // Show error toast
       toast({
@@ -76,9 +74,7 @@ export default function Login() {
         <div className="text-center">
           <p>
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-blue-500">
-              Register
-            </Link>
+            Hubungi admin/DEV untuk dibuatkan akun.
           </p>
         </div>
       </form>

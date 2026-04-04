@@ -1,5 +1,3 @@
-import Cookies from "js-cookie";
-
 export type ClientSessionUser = {
   id: string;
   name?: string;
@@ -12,14 +10,6 @@ export type ClientSessionUser = {
 
 export const getSessionClient = async (): Promise<ClientSessionUser | null> => {
   try {
-    const token = Cookies.get("session_id");
-    if (process.env.NODE_ENV === "development") {
-      console.log("Session ID from cookies:", token);
-    }
-    if (!token) {
-      return null;
-    }
-
     const response = await fetch("/api/auth/session", {
       method: "GET",
       headers: {
@@ -28,12 +18,12 @@ export const getSessionClient = async (): Promise<ClientSessionUser | null> => {
       credentials: "include",
     });
 
-    if (response.ok) {
-      const user = await response.json();
-      return user;
+    if (!response.ok) {
+      return null;
     }
 
-    return null;
+    const user = await response.json();
+    return user;
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       console.error("Error in getSessionClient:", error);

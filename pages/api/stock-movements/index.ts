@@ -17,6 +17,16 @@ const getStatusByQuantity = (quantity: number) => {
   return "Stock Out";
 };
 
+const resolveActorName = (actor: any) => {
+  const name = typeof actor?.createdByName === "string" ? actor.createdByName.trim() : "";
+  if (name) return name;
+
+  const directName = typeof actor?.name === "string" ? actor.name.trim() : "";
+  if (directName) return directName;
+
+  return "Unknown User";
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSessionServer(req, res);
   if (!session) {
@@ -80,8 +90,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           unit: record.unit || "pcs",
           notes: record.notes || "",
           createdByUserId: record.createdByUserId || record.userId || "",
-          createdByName: record.createdByName || "admin",
+          createdByName: resolveActorName(record),
           createdByEmail: record.createdByEmail || "",
+          createdByUsername: typeof record.createdByUsername === "string" ? record.createdByUsername : "",
         }));
 
         return res.status(200).json({
@@ -177,7 +188,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         userId,
         lokasi,
         createdByUserId: session.id,
-        createdByName: session.name || "admin",
+        createdByName: resolveActorName({ createdByName: session.name, name: (session as any).name }),
+        createdByUsername: typeof (session as any).username === "string" ? (session as any).username : "",
         createdByEmail: session.email || "",
         productId,
         productName: product.name || "Unknown",
