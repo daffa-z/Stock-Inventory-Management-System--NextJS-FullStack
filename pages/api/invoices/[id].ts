@@ -65,8 +65,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const taxableAmount = Math.max(totalAmount - discountAmount, 0);
   const taxAmount = taxableAmount * (taxRate / 100);
   const grandTotal = taxableAmount + taxAmount;
-  const amountPaid = Math.max(toNumber(req.body?.amountPaid, grandTotal), grandTotal);
-  const changeAmount = amountPaid - grandTotal;
+  // Keep payment summary consistent for edited invoices (no manual amount-paid input in edit flow).
+  const amountPaid = grandTotal;
+  const changeAmount = 0;
 
   try {
     const mongoUri = process.env.DATABASE_URL;
