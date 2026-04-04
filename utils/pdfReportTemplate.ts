@@ -43,9 +43,15 @@ export const openAndPrintTypewriterReport = ({
     })
     .join("");
 
-  const summaryHtml = summaryLines.length
-    ? `<div style="margin-top: 16px; text-align: right; line-height: 1.6;">${summaryLines.map((line) => `<p style="margin:0;">${line}</p>`).join("")}</div>`
+  const isZeroCurrencyLine = (line: string) => /Rp[\s ]*0([.,]0+)?(\D|$)/.test(line);
+  const filteredSummaryLines = summaryLines.filter((line) => !isZeroCurrencyLine(line));
+
+  const summaryHtml = filteredSummaryLines.length
+    ? `<div style="margin-top: 16px; text-align: right; line-height: 1.6;">${filteredSummaryLines.map((line) => `<p style="margin:0;">${line}</p>`).join("")}</div>`
     : "";
+
+  const lastRow = tableRows.length ? tableRows[tableRows.length - 1] : null;
+  const lastRowPreview = lastRow ? `${lastRow[0] || "Item"} | Qty: ${lastRow[3] || "-"} | Total: ${lastRow[lastRow.length - 1] || "-"}` : "";
 
   printWindow.document.write(`
     <html>
@@ -68,8 +74,9 @@ export const openAndPrintTypewriterReport = ({
           </tbody>
         </table>
         ${summaryHtml}
-        <div style="margin-top: 48px; display: flex; justify-content: flex-end;">
+        <div style="margin-top: 48px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
           <div style="text-align: center; min-width: 220px;">
+            ${lastRowPreview ? `<p style="margin:0 0 8px; font-size: 12px; text-align: right;">Data terakhir: ${lastRowPreview}</p>` : ""}
             <p style="margin:0;">${new Date().toLocaleDateString("id-ID")}</p>
             <p style="margin:0 0 64px;">Mengetahui,</p>
             <p style="margin:0; font-weight: 700; text-decoration: underline;">${signatureName}</p>
