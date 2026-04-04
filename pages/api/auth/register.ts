@@ -25,8 +25,8 @@ export default async function handler(
 
   try {
     const sessionUser = await getSessionServer(req, res);
-    const role = (sessionUser?.role || "").toUpperCase();
-    if (role !== "DEV") {
+    const sessionRole = (sessionUser?.role || "").toUpperCase();
+    if (sessionRole !== "DEV") {
       return res.status(403).json({ error: "Forbidden: only DEV can register users" });
     }
 
