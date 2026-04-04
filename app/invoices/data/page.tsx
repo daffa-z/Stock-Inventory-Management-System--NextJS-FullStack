@@ -539,6 +539,10 @@ export default function InvoiceDataPage() {
                     <Label>Payment Method</Label>
                     <Input value={editingInvoice.paymentMethod} onChange={(e) => setEditingInvoice((prev) => prev ? { ...prev, paymentMethod: e.target.value } : prev)} />
                   </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Keterangan</Label>
+                    <Input value={editingInvoice.keterangan || ""} onChange={(e) => setEditingInvoice((prev) => prev ? { ...prev, keterangan: e.target.value } : prev)} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
