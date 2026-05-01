@@ -181,6 +181,7 @@ export default function InvoicesPage() {
       summaryLines: [
         `Diinput oleh: ${invoice.createdByName || "Unknown User"}`,
         `Metode pembayaran: ${invoice.paymentMethod}`,
+        `Keterangan: ${invoice.keterangan || "-"}`,
         `Subtotal: ${formatCurrency(invoice.totalAmount)}`,
         `Diskon: ${formatCurrency(invoice.discountAmount || 0)}`,
         `Pajak: ${formatCurrency(invoice.taxAmount)}`,
